@@ -20,7 +20,7 @@ export function Sidebar() {
     <aside className="w-64 bg-white/80 backdrop-blur-xl border-r border-gray-100 flex-shrink-0 flex flex-col items-start px-4 py-6 shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-10 sticky top-0 h-screen">
       <div className="mb-10 px-4 w-full">
         <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-          WashAdmin
+          CleanCart
         </h1>
         <p className="text-xs text-gray-500 font-medium tracking-wide mt-1 uppercase">Control Panel</p>
       </div>

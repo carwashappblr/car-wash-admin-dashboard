@@ -66,7 +66,7 @@ export default function LoginPage() {
             <Lock className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Admin Portal</h1>
-          <p className="text-sm text-gray-500 mt-2 font-medium">Please sign in to access the WashAdmin dashboard.</p>
+          <p className="text-sm text-gray-500 mt-2 font-medium">Please sign in to access the CleanCart dashboard.</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-6">
