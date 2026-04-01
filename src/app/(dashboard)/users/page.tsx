@@ -10,7 +10,6 @@ const roleOptions = [
   { label: 'All Roles', value: 'ALL' },
   { label: 'Admin', value: Role.ADMIN },
   { label: 'User', value: Role.USER },
-  { label: 'Worker', value: Role.WORKER },
 ] as const;
 
 const statusOptions = [
@@ -21,7 +20,7 @@ const statusOptions = [
 
 export default function UsersPage() {
   const [search, setSearch] = useState('');
-  const [selectedRole, setSelectedRole] = useState<string>('ALL');
+  const [selectedRole, setSelectedRole] = useState<string>(Role.USER);
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
 
   const { data: users, isLoading, error } = useQuery({
