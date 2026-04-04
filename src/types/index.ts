@@ -20,27 +20,28 @@ export interface User {
   createdAt: string;
 }
 
-export interface Worker {
+export interface Machine {
   id: string;
-  userId: string;
-  name?: string;     // Added direct field
-  email?: string;    // Added direct field
-  phone?: string;    // Added direct field
+  name: string;
+  email: string;
+  password?: string;
+  phone?: string;
+  role?: Role;
   isActive: boolean;
   createdAt: string;
-  user?: User;       // Made user optional
+  updatedAt: string;
 }
 
 export interface Task {
   id: string;
   userId: string;
-  workerId?: string;
+  machineId?: string;
   status: TaskStatus;
   notes?: string;
   createdAt: string;
   updatedAt: string;
   user?: User;
-  worker?: Worker;
+  machine?: Machine;
 }
 
 export interface SubscriptionPlan {

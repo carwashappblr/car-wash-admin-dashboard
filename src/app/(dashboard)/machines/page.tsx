@@ -2,30 +2,30 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/api/client';
-import { Worker } from '@/types';
+import { Machine } from '@/types';
 import { Search, Loader2, Plus } from 'lucide-react';
 import { useState } from 'react';
-import { CreateWorkerModal } from '@/components/workers/CreateWorkerModal';
+import { CreateMachineModal } from '@/components/machines/CreateMachineModal';
 
-export default function WorkersPage() {
+export default function MachinesPage() {
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const { data: workers, isLoading, refetch, error } = useQuery({
-    queryKey: ['workers'],
-    queryFn: () => apiClient.get<Worker[]>('/workers').then(res => {
-      console.log('Workers API Response:', res.data);
+  const { data: machines, isLoading, refetch, error } = useQuery({
+    queryKey: ['machines'],
+    queryFn: () => apiClient.get<Machine[]>('/machines').then(res => {
+      console.log('Machines API Response:', res.data);
       return res.data;
     })
   });
 
   if (error) {
-    console.error('Workers fetch error:', error);
+    console.error('Machines fetch error:', error);
   }
 
-  const filteredWorkers = (Array.isArray(workers) ? workers : [])?.filter(worker => {
-    const name = (worker.name || worker.user?.name || '').toLowerCase();
-    const email = (worker.email || worker.user?.email || '').toLowerCase();
+  const filteredMachines = (Array.isArray(machines) ? machines : []).filter((machine) => {
+    const name = (machine.name || '').toLowerCase();
+    const email = (machine.email || '').toLowerCase();
     const searchTerm = search.toLowerCase();
     return name.includes(searchTerm) || email.includes(searchTerm);
   });
@@ -34,15 +34,15 @@ export default function WorkersPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Worker Management</h1>
-          <p className="text-sm text-gray-500 font-medium">Manage service staff and their statuses</p>
+          <h1 className="text-2xl font-bold text-gray-900">Machine Management</h1>
+          <p className="text-sm text-gray-500 font-medium">Manage machine accounts and their statuses</p>
         </div>
         <button 
           onClick={() => setIsModalOpen(true)}
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-semibold shadow-lg shadow-blue-500/20 transition-all flex items-center gap-2 text-sm group"
         >
           <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform" />
-          Add New Worker
+          Add New Machine
         </button>
       </div>
 
@@ -52,7 +52,7 @@ export default function WorkersPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input 
               type="text" 
-              placeholder="Search workers..." 
+              placeholder="Search machines..." 
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium placeholder:font-normal"
@@ -77,27 +77,27 @@ export default function WorkersPage() {
                     <Loader2 className="w-6 h-6 animate-spin text-blue-500 mx-auto" />
                   </td>
                 </tr>
-              ) : filteredWorkers?.length === 0 ? (
+              ) : filteredMachines.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="px-6 py-12 text-center text-gray-500 font-medium">
-                    No workers found matching your search.
+                    No machines found matching your search.
                   </td>
                 </tr>
               ) : (
-                filteredWorkers?.map((worker) => (
-                  <tr key={worker.id} className="hover:bg-blue-50/30 transition-colors">
+                filteredMachines.map((machine) => (
+                  <tr key={machine.id} className="hover:bg-blue-50/30 transition-colors">
                     <td className="px-6 py-4">
                       <div>
-                        <div className="font-semibold text-gray-900">{worker.name || worker.user?.name || 'Unknown'}</div>
-                        <div className="text-xs text-gray-500 mt-0.5">{worker.email || worker.user?.email || 'N/A'}</div>
+                        <div className="font-semibold text-gray-900">{machine.name || 'Unknown'}</div>
+                        <div className="text-xs text-gray-500 mt-0.5">{machine.email || 'N/A'}</div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 font-mono text-xs text-gray-500">{worker.phone || 'N/A'}</td>
+                    <td className="px-6 py-4 font-mono text-xs text-gray-500">{machine.phone || 'N/A'}</td>
                     <td className="px-6 py-4">
                       <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${
-                        worker.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                        machine.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                       }`}>
-                        {worker.isActive ? 'Active' : 'Suspended'}
+                        {machine.isActive ? 'Active' : 'Suspended'}
                       </span>
                     </td>
                     <td className="px-6 py-4">
@@ -113,7 +113,7 @@ export default function WorkersPage() {
         </div>
       </div>
 
-      <CreateWorkerModal 
+      <CreateMachineModal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
         onSuccess={() => refetch()}

@@ -3,7 +3,7 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiClient } from '@/api/client';
 import { Task, TaskStatus } from '@/types';
-import { Search, Loader2, CheckCircle2 } from 'lucide-react';
+import { Loader2, CheckCircle2 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -101,7 +101,7 @@ export default function TasksPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-gray-500">
-                      {task.worker?.user?.name || <span className="text-gray-400 italic">Unassigned</span>}
+                      {task.machine?.name || <span className="text-gray-400 italic">Unassigned</span>}
                     </td>
                     <td className="px-6 py-4 text-right">
                       {task.status !== 'COMPLETED' && task.status !== 'CANCELLED' && (

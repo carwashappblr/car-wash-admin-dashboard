@@ -8,7 +8,7 @@ import { clsx } from 'clsx';
 const NAV_ITEMS = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Users', href: '/users', icon: Users },
-  { name: 'Workers', href: '/workers', icon: Wrench },
+  { name: 'Machines', href: '/machines', icon: Wrench },
   { name: 'Tasks', href: '/tasks', icon: Briefcase },
   { name: 'Subscriptions', href: '/subscription-plans', icon: CreditCard },
 ];

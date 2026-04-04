@@ -7,14 +7,21 @@ import { toast } from 'sonner';
 import { X, UserPlus, Loader2 } from 'lucide-react';
 import { clsx } from 'clsx';
 
-interface CreateWorkerModalProps {
+interface CreateMachineModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export function CreateWorkerModal({ isOpen, onClose, onSuccess }: CreateWorkerModalProps) {
-  const [formData, setFormData] = useState({
+interface CreateMachinePayload {
+  name: string;
+  email: string;
+  password: string;
+  phone: string;
+}
+
+export function CreateMachineModal({ isOpen, onClose, onSuccess }: CreateMachineModalProps) {
+  const [formData, setFormData] = useState<CreateMachinePayload>({
     name: '',
     email: '',
     password: '',
@@ -22,17 +29,17 @@ export function CreateWorkerModal({ isOpen, onClose, onSuccess }: CreateWorkerMo
   });
 
   const mutation = useMutation({
-    mutationFn: (data: any) => apiClient.post('/workers', data),
+    mutationFn: (data: CreateMachinePayload) => apiClient.post('/machines', data),
     onSuccess: () => {
-      toast.success('Worker Created', {
+      toast.success('Machine Created', {
         description: 'New service staff member added successfully.',
       });
       setFormData({ name: '', email: '', password: '', phone: '' });
       onSuccess();
       onClose();
     },
-    onError: (error: any) => {
-      toast.error('Failed to create worker', {
+    onError: (error: { response?: { data?: { message?: string } } }) => {
+      toast.error('Failed to create machine', {
         description: error.response?.data?.message || 'Please check the provided data.',
       });
     }
@@ -54,8 +61,8 @@ export function CreateWorkerModal({ isOpen, onClose, onSuccess }: CreateWorkerMo
               <UserPlus className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="font-bold text-gray-900 text-lg tracking-tight">Add Worker</h2>
-              <p className="text-xs text-gray-500 font-medium">Create a new staff account</p>
+              <h2 className="font-bold text-gray-900 text-lg tracking-tight">Add Machine</h2>
+              <p className="text-xs text-gray-500 font-medium">Create a new machine account</p>
             </div>
           </div>
           <button 
@@ -87,7 +94,7 @@ export function CreateWorkerModal({ isOpen, onClose, onSuccess }: CreateWorkerMo
               value={formData.email}
               onChange={e => setFormData({ ...formData, email: e.target.value })}
               className="w-full bg-gray-50/50 border border-gray-200 text-sm rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-gray-900 placeholder:text-gray-400 placeholder:font-normal"
-              placeholder="worker@carwash.com"
+              placeholder="machine@carwash.com"
             />
           </div>
 

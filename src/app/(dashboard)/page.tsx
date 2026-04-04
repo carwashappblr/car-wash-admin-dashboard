@@ -2,11 +2,22 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/api/client';
-import { Users, Wrench, Briefcase, Activity } from 'lucide-react';
+import { Users, Wrench, Briefcase, Activity, type LucideIcon } from 'lucide-react';
+import Link from 'next/link';
+import { Machine, Task } from '@/types';
 
 // Reusable Stat Card Component
-function StatCard({ title, value, icon: Icon, color, loading }: any) {
-  return (
+interface StatCardProps {
+  title: string;
+  value: number;
+  icon: LucideIcon;
+  color: string;
+  loading: boolean;
+  href?: string;
+}
+
+function StatCard({ title, value, icon: Icon, color, loading, href }: StatCardProps) {
+  const cardContent = (
     <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow group relative overflow-hidden">
       <div className={`absolute -right-6 -top-6 w-24 h-24 rounded-full opacity-10 blur-2xl transition-all group-hover:scale-150 group-hover:opacity-20 ${color}`} />
       
@@ -25,6 +36,16 @@ function StatCard({ title, value, icon: Icon, color, loading }: any) {
       </div>
     </div>
   );
+
+  if (href) {
+    return (
+      <Link href={href} className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-gray-300 rounded-2xl">
+        {cardContent}
+      </Link>
+    );
+  }
+
+  return cardContent;
 }
 
 export default function Dashboard() {
@@ -33,25 +54,25 @@ export default function Dashboard() {
     queryFn: () => apiClient.get('/users').then(res => res.data)
   });
 
-  const { data: workers, isLoading: workersLoading } = useQuery({
-    queryKey: ['workers'],
-    queryFn: () => apiClient.get('/workers').then(res => res.data)
+  const { data: machines, isLoading: machinesLoading } = useQuery({
+    queryKey: ['machines'],
+    queryFn: () => apiClient.get<Machine[]>('/machines').then(res => res.data)
   });
 
   const { data: tasks, isLoading: tasksLoading } = useQuery({
     queryKey: ['tasks'],
-    queryFn: () => apiClient.get('/tasks').then(res => res.data)
+    queryFn: () => apiClient.get<Task[]>('/tasks').then(res => res.data)
   });
 
-  const activeWorkers = (Array.isArray(workers) ? workers : [])?.filter((w: any) => w.isActive)?.length || 0;
-  const pendingTasks = (Array.isArray(tasks) ? tasks : [])?.filter((t: any) => t.status === 'PENDING')?.length || 0;
+  const pendingTasks = (Array.isArray(tasks) ? tasks : []).filter((task) => task.status === 'PENDING').length;
+  const recentLogIds = [184, 327, 502, 761];
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex items-end justify-between">
         <div>
           <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Overview</h1>
-          <p className="text-gray-500 font-medium mt-1">Here's what's happening with the platform today.</p>
+          <p className="text-gray-500 font-medium mt-1">Here&apos;s what&apos;s happening with the platform today.</p>
         </div>
       </div>
 
@@ -62,13 +83,15 @@ export default function Dashboard() {
           icon={Users} 
           color="bg-purple-600" 
           loading={usersLoading} 
+          href="/users"
         />
         <StatCard 
-          title="Workers" 
-          value={workers?.length || 0} 
+          title="Machines" 
+          value={machines?.length || 0} 
           icon={Wrench} 
           color="bg-blue-600" 
-          loading={workersLoading} 
+          loading={machinesLoading} 
+          href="/machines"
         />
         <StatCard 
           title="Active Tasks" 
@@ -76,6 +99,7 @@ export default function Dashboard() {
           icon={Activity} 
           color="bg-indigo-600" 
           loading={tasksLoading} 
+          href="/tasks"
         />
         <StatCard 
           title="Pending Queue" 
@@ -83,6 +107,7 @@ export default function Dashboard() {
           icon={Briefcase} 
           color="bg-orange-500" 
           loading={tasksLoading} 
+          href="/tasks"
         />
       </div>
 
@@ -91,11 +116,11 @@ export default function Dashboard() {
           <h2 className="text-lg font-bold text-gray-900 border-b border-gray-100 pb-4 mb-4">Recent Activity Logs</h2>
           <div className="space-y-4">
              {/* Mock logs for visual demonstration since no specific log endpoint is available */}
-             {[1,2,3,4].map((i) => (
+             {[1, 2, 3, 4].map((i, index) => (
                 <div key={i} className="flex items-center gap-4 group">
                   <div className="w-2 h-2 rounded-full bg-blue-500/50 group-hover:bg-blue-600 group-hover:scale-150 transition-all"></div>
                   <div className="flex-1 text-sm font-medium text-gray-600">
-                    User #{(Math.random() * 1000).toFixed(0)} registered a new account
+                    User #{recentLogIds[index]} registered a new account
                   </div>
                   <div className="text-xs text-gray-400 font-semibold">{i * 2} min ago</div>
                 </div>
