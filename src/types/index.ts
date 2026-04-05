@@ -53,6 +53,25 @@ export interface SubscriptionPlan {
   createdAt: string;
 }
 
+export interface Tower {
+  id: string;
+  name: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Community {
+  id: string;
+  name: string;
+  city: string;
+  address: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  towers: Tower[];
+}
+
 export interface AuthResponse {
   accessToken: string;
   user: User;
