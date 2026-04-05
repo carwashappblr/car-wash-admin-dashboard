@@ -39,7 +39,7 @@ export default function MachinesPage() {
         </div>
         <button 
           onClick={() => setIsModalOpen(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-semibold shadow-lg shadow-blue-500/20 transition-all flex items-center gap-2 text-sm group"
+          className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-semibold shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-2 text-sm group"
         >
           <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform" />
           Add New Machine

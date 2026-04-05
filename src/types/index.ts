@@ -26,6 +26,7 @@ export interface Machine {
   email: string;
   password?: string;
   phone?: string;
+  towerId?: string;
   role?: Role;
   isActive: boolean;
   createdAt: string;
