@@ -37,9 +37,11 @@ export function CreateMachineModal({ isOpen, onClose, onSuccess }: CreateMachine
     queryFn: () => apiClient.get<Community[]>('/communities').then((res) => res.data)
   });
 
-  const availableCommunities = Array.isArray(communities) ? communities : [];
+  const availableCommunities = Array.isArray(communities)
+    ? communities.filter((community) => community.isActive)
+    : [];
   const selectedCommunity = availableCommunities.find((community) => community.id === selectedCommunityId);
-  const availableTowers = selectedCommunity?.towers ?? [];
+  const availableTowers = selectedCommunity?.towers.filter((tower) => tower.isActive) ?? [];
 
   const mutation = useMutation({
     mutationFn: (data: CreateMachinePayload) => apiClient.post('/machines', data),

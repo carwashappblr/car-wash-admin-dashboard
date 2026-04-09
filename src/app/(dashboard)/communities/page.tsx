@@ -4,11 +4,13 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/api/client';
 import { Community } from '@/types';
-import { Search, Loader2, Plus, Building2 } from 'lucide-react';
+import { Search, Loader2, Plus, Building2, Pencil } from 'lucide-react';
 import { CreateCommunityModal } from '@/components/communities/CreateCommunityModal';
+import { EditCommunityModal } from '@/components/communities/EditCommunityModal';
 
 interface CommunityRow {
   rowId: string;
+  communityId: string;
   communityName: string;
   towerName: string;
   city: string;
@@ -18,7 +20,8 @@ interface CommunityRow {
 
 export default function CommunitiesPage() {
   const [search, setSearch] = useState('');
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [editingCommunityId, setEditingCommunityId] = useState<string | null>(null);
 
   const { data: communities, isLoading, refetch, error } = useQuery({
     queryKey: ['communities'],
@@ -37,6 +40,7 @@ export default function CommunitiesPage() {
         return [
           {
             rowId: `${community.id}-no-tower`,
+            communityId: community.id,
             communityName: community.name,
             towerName: 'No tower added',
             city: community.city,
@@ -48,6 +52,7 @@ export default function CommunitiesPage() {
 
       return community.towers.map((tower) => ({
         rowId: tower.id,
+        communityId: community.id,
         communityName: community.name,
         towerName: tower.name,
         city: community.city,
@@ -67,6 +72,14 @@ export default function CommunitiesPage() {
     );
   });
 
+  const selectedCommunity = useMemo(() => {
+    if (!editingCommunityId || !Array.isArray(communities)) {
+      return null;
+    }
+
+    return communities.find((community) => community.id === editingCommunityId) ?? null;
+  }, [communities, editingCommunityId]);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -75,7 +88,7 @@ export default function CommunitiesPage() {
           <p className="text-sm text-gray-500 font-medium">Manage communities and the towers available within each location</p>
         </div>
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => setIsCreateModalOpen(true)}
           className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-semibold shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-2 text-sm group"
         >
           <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform" />
@@ -110,18 +123,19 @@ export default function CommunitiesPage() {
                 <th className="px-6 py-4">City</th>
                 <th className="px-6 py-4">Address</th>
                 <th className="px-6 py-4">Status</th>
+                <th className="px-6 py-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {isLoading ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center">
+                  <td colSpan={6} className="px-6 py-12 text-center">
                     <Loader2 className="w-6 h-6 animate-spin text-emerald-500 mx-auto" />
                   </td>
                 </tr>
               ) : filteredRows.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-gray-500 font-medium">
+                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500 font-medium">
                     No community records found matching your search.
                   </td>
                 </tr>
@@ -139,6 +153,18 @@ export default function CommunitiesPage() {
                         {row.isActive ? 'Active' : 'Inactive'}
                       </span>
                     </td>
+                    <td className="px-6 py-4">
+                      <div className="flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => setEditingCommunityId(row.communityId)}
+                          className="inline-flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 transition-colors hover:bg-amber-100"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                          Edit
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))
               )}
@@ -148,8 +174,16 @@ export default function CommunitiesPage() {
       </div>
 
       <CreateCommunityModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={() => refetch()}
+      />
+
+      <EditCommunityModal
+        key={selectedCommunity ? `${selectedCommunity.id}-${selectedCommunity.updatedAt}` : 'edit-community'}
+        isOpen={Boolean(selectedCommunity)}
+        community={selectedCommunity}
+        onClose={() => setEditingCommunityId(null)}
         onSuccess={() => refetch()}
       />
     </div>
