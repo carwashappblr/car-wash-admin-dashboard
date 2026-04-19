@@ -48,10 +48,21 @@ export interface Task {
 export interface SubscriptionPlan {
   id: string;
   name: string;
+  description?: string | null;
   price: number;
-  durationInDays: number;
-  features: string[];
+  durationDays: number;
+  washCount: number;
+  isActive: boolean;
   createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateSubscriptionPlanPayload {
+  name: string;
+  description?: string;
+  price: number;
+  durationDays: number;
+  washCount: number;
 }
 
 export interface Tower {

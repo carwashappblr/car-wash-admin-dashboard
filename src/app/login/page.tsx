@@ -2,11 +2,27 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/store/AuthContext';
-import { useRouter } from 'next/navigation';
 import { apiClient } from '@/api/client';
 import { toast } from 'sonner';
 import { Lock, Mail, ArrowRight } from 'lucide-react';
+import { isAxiosError } from 'axios';
 import { jwtDecode } from 'jwt-decode';
+import { Role } from '@/types';
+
+interface LoginResponse {
+  accessToken: string;
+}
+
+interface LoginTokenPayload {
+  sub: string;
+  email?: string;
+  name?: string;
+  role: Role;
+}
+
+interface ApiErrorResponse {
+  message?: string;
+}
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -14,19 +30,18 @@ export default function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const { login } = useAuth();
-  const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
     try {
-      const response = await apiClient.post('/auth/login', { email, password });
+      const response = await apiClient.post<LoginResponse>('/auth/login', { email, password });
       const token = response.data.accessToken;
       
-      const decoded: any = jwtDecode(token);
+      const decoded = jwtDecode<LoginTokenPayload>(token);
       
-      if (decoded.role !== 'ADMIN') {
+      if (decoded.role !== Role.ADMIN) {
         toast.error('Access Denied', {
           description: 'Only administrators can access the dashboard.',
         });
@@ -39,7 +54,7 @@ export default function LoginPage() {
         id: decoded.sub,
         email: decoded.email || email,
         name: decoded.name || 'Admin User',
-        role: decoded.role as any,
+        role: decoded.role,
         createdAt: new Date().toISOString()
       };
       
@@ -47,9 +62,13 @@ export default function LoginPage() {
       toast.success('Welcome back', {
         description: 'Successfully authenticated.',
       });
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = isAxiosError<ApiErrorResponse>(error)
+        ? error.response?.data?.message || 'Invalid email or password.'
+        : 'Invalid email or password.';
+
       toast.error('Authentication Failed', {
-        description: error.response?.data?.message || 'Invalid email or password.',
+        description: errorMessage,
       });
       setIsSubmitting(false);
     }
