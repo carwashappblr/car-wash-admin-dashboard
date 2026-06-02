@@ -5,6 +5,7 @@ export enum Role {
 }
 
 export enum TaskStatus {
+  UNSCHEDULED = 'UNSCHEDULED',
   PENDING = 'PENDING',
   IN_PROGRESS = 'IN_PROGRESS',
   COMPLETED = 'COMPLETED',
