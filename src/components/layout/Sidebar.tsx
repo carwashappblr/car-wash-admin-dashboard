@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, Wrench, Briefcase, CreditCard, Building2 } from 'lucide-react';
+import { LayoutDashboard, Users, Wrench, Briefcase, CreditCard, Building2, Calendar } from 'lucide-react';
 import { clsx } from 'clsx';
 
 const NAV_ITEMS = [
@@ -10,9 +10,11 @@ const NAV_ITEMS = [
   { name: 'Users', href: '/users', icon: Users },
   { name: 'Machines', href: '/machines', icon: Wrench },
   { name: 'Tasks', href: '/tasks', icon: Briefcase },
+  { name: 'Schedule Tasks', href: '/schedule-tasks', icon: Calendar },
   { name: 'Communities', href: '/communities', icon: Building2 },
   { name: 'Subscriptions', href: '/subscription-plans', icon: CreditCard },
 ];
+
 
 export function Sidebar() {
   const pathname = usePathname();

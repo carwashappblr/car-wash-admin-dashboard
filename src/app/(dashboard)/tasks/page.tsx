@@ -3,12 +3,11 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/api/client';
 import { Community, Task, TaskStatus } from '@/types';
-import { CalendarClock, CheckCircle2, Loader2, Play } from 'lucide-react';
+import { CheckCircle2, Loader2, Play } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
 const TASK_TABS = [
-  { key: TaskStatus.UNSCHEDULED, label: 'Unscheduled' },
   { key: TaskStatus.PENDING, label: 'Pending' },
   { key: TaskStatus.IN_PROGRESS, label: 'In Progress' },
   { key: TaskStatus.COMPLETED, label: 'Complete' },
@@ -16,8 +15,6 @@ const TASK_TABS = [
 
 const getStatusColor = (status: string) => {
   switch (status) {
-    case TaskStatus.UNSCHEDULED:
-      return 'bg-gray-100 text-gray-700 border-gray-200';
     case TaskStatus.PENDING:
       return 'bg-orange-100 text-orange-700 border-orange-200';
     case TaskStatus.IN_PROGRESS:
@@ -32,7 +29,7 @@ const getStatusColor = (status: string) => {
 };
 
 export default function TasksPage() {
-  const [activeTab, setActiveTab] = useState<TaskStatus>(TaskStatus.UNSCHEDULED);
+  const [activeTab, setActiveTab] = useState<TaskStatus>(TaskStatus.PENDING);
   const [selectedCommunityId, setSelectedCommunityId] = useState('');
   const [selectedTowerId, setSelectedTowerId] = useState('');
 
@@ -74,27 +71,15 @@ export default function TasksPage() {
   const handleCommunityChange = (communityId: string) => {
     setSelectedCommunityId(communityId);
     setSelectedTowerId('');
-    setActiveTab(TaskStatus.UNSCHEDULED);
+    setActiveTab(TaskStatus.PENDING);
   };
 
   const handleTowerChange = (towerId: string) => {
     setSelectedTowerId(towerId);
-    setActiveTab(TaskStatus.UNSCHEDULED);
+    setActiveTab(TaskStatus.PENDING);
   };
 
   const renderAction = (task: Task) => {
-    if (activeTab === TaskStatus.UNSCHEDULED) {
-      return (
-        <button
-          type="button"
-          className="text-gray-700 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors inline-flex items-center gap-1.5"
-        >
-          <CalendarClock className="w-3.5 h-3.5" />
-          Assign Date / Machine
-        </button>
-      );
-    }
-
     if (activeTab === TaskStatus.PENDING) {
       return (
         <button

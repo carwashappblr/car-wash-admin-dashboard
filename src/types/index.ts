@@ -5,7 +5,6 @@ export enum Role {
 }
 
 export enum TaskStatus {
-  UNSCHEDULED = 'UNSCHEDULED',
   PENDING = 'PENDING',
   IN_PROGRESS = 'IN_PROGRESS',
   COMPLETED = 'COMPLETED',
@@ -85,7 +84,60 @@ export interface Community {
   towers: Tower[];
 }
 
+export interface Car {
+  id: string;
+  plateNumber: string;
+  color: string;
+  make: string;
+  model: string;
+  year?: number;
+  defaultSlotNumber?: string;
+  towerId?: string;
+  tower?: {
+    id: string;
+    name: string;
+    communityId: string;
+    community?: {
+      id: string;
+      name: string;
+      city: string;
+      address: string;
+    };
+  };
+}
+
+export interface UserSubscription {
+  id: string;
+  userId: string;
+  planId: string;
+  carId: string;
+  isActive: boolean;
+  startDate: string;
+  endDate: string;
+  washesUsed: number;
+  remainingWashes: number;
+  createdAt: string;
+  updatedAt: string;
+  user: {
+    id: string;
+    name: string;
+    phone: string;
+    email: string;
+  };
+  plan: SubscriptionPlan;
+  car: Car;
+  tasks: Array<{
+    id: string;
+    status: TaskStatus;
+    scheduledDate: string | null;
+    machineId: string | null;
+    slotId: string | null;
+    createdAt: string;
+  }>;
+}
+
 export interface AuthResponse {
   accessToken: string;
   user: User;
 }
+
