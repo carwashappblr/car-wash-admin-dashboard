@@ -5,9 +5,9 @@ import { getSubscriptionPlans } from '@/api/subscription-plans';
 
 export const subscriptionPlansQueryKey = ['subscription-plans'] as const;
 
-export function useSubscriptionPlans() {
+export function useSubscriptionPlans(communityId?: string) {
   return useQuery({
-    queryKey: subscriptionPlansQueryKey,
-    queryFn: getSubscriptionPlans,
+    queryKey: communityId ? [...subscriptionPlansQueryKey, communityId] : subscriptionPlansQueryKey,
+    queryFn: () => getSubscriptionPlans(communityId),
   });
 }

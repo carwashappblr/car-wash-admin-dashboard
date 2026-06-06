@@ -1,7 +1,9 @@
 'use client';
 
 import { AlertCircle, CreditCard, Loader2 } from 'lucide-react';
-import { SubscriptionPlan } from '@/types';
+import { SubscriptionPlan, Community } from '@/types';
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '@/api/client';
 
 interface SubscriptionPlansTableProps {
   plans: SubscriptionPlan[];
@@ -28,6 +30,11 @@ export function SubscriptionPlansTable({
   errorMessage,
   onRetry,
 }: SubscriptionPlansTableProps) {
+  const { data: communities } = useQuery({
+    queryKey: ['communities'],
+    queryFn: () => apiClient.get<Community[]>('/communities').then((res) => res.data),
+  });
+
   if (isLoading) {
     return (
       <div className="flex min-h-80 items-center justify-center rounded-3xl border border-gray-100 bg-white shadow-sm">
@@ -84,44 +91,55 @@ export function SubscriptionPlansTable({
         <table className="w-full min-w-[900px] text-left text-sm text-gray-600">
           <thead className="bg-gray-50/80 text-xs font-semibold uppercase tracking-wider text-gray-500">
             <tr>
-              <th className="px-6 py-4">Plan Name</th>
+              <th className="px-6 py-4">Plan Name / Community</th>
               <th className="px-6 py-4">Description</th>
-              <th className="px-6 py-4">Price</th>
+              <th className="px-6 py-4">Base Price</th>
+              <th className="px-6 py-4">Extra Wash Price</th>
               <th className="px-6 py-4">Duration</th>
-              <th className="px-6 py-4">Wash Count</th>
+              <th className="px-6 py-4">Base Wash Count</th>
               <th className="px-6 py-4">Status</th>
               <th className="px-6 py-4">Created</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {plans.map((plan) => (
-              <tr key={plan.id} className="transition-colors hover:bg-blue-50/30">
-                <td className="px-6 py-4">
-                  <div>
-                    <p className="font-semibold text-gray-900">{plan.name}</p>
-                    <p className="mt-1 text-xs font-medium text-gray-400">{plan.id}</p>
-                  </div>
-                </td>
-                <td className="px-6 py-4 text-gray-500">
-                  {plan.description?.trim() ? plan.description : 'No description'}
-                </td>
-                <td className="px-6 py-4 font-semibold text-gray-900">
-                  {currencyFormatter.format(plan.price)}
-                </td>
-                <td className="px-6 py-4 text-gray-700">{plan.durationDays} days</td>
-                <td className="px-6 py-4 text-gray-700">{plan.washCount} washes</td>
-                <td className="px-6 py-4">
-                  <span
-                    className={`rounded-md px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${
-                      plan.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                    }`}
-                  >
-                    {plan.isActive ? 'Active' : 'Inactive'}
-                  </span>
-                </td>
-                <td className="px-6 py-4 text-gray-500">{dateFormatter.format(new Date(plan.createdAt))}</td>
-              </tr>
-            ))}
+            {plans.map((plan) => {
+              const community = Array.isArray(communities)
+                ? communities.find((c) => c.id === plan.communityId)
+                : null;
+              return (
+                <tr key={plan.id} className="transition-colors hover:bg-blue-50/30">
+                  <td className="px-6 py-4">
+                    <div>
+                      <p className="font-semibold text-gray-900">{plan.name}</p>
+                      <span className="inline-block mt-1 rounded bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700">
+                        {community ? `${community.name} (${community.city})` : plan.communityId}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-gray-500">
+                    {plan.description?.trim() ? plan.description : 'No description'}
+                  </td>
+                  <td className="px-6 py-4 font-semibold text-gray-900">
+                    {currencyFormatter.format(plan.basePrice)}
+                  </td>
+                  <td className="px-6 py-4 text-gray-700">
+                    {currencyFormatter.format(plan.extraWashPrice)} / wash
+                  </td>
+                  <td className="px-6 py-4 text-gray-700">{plan.durationDays} days</td>
+                  <td className="px-6 py-4 text-gray-700">{plan.baseWashCount} washes</td>
+                  <td className="px-6 py-4">
+                    <span
+                      className={`rounded-md px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${
+                        plan.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                      }`}
+                    >
+                      {plan.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-gray-500">{dateFormatter.format(new Date(plan.createdAt))}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

@@ -138,7 +138,7 @@ export function ScheduleWashModal({ isOpen, subscription, onClose, onSuccess }: 
           <div className="flex items-center justify-between border-t border-gray-200/50 pt-2 mt-1">
             <span className="text-xs font-medium text-gray-500">Plan: {subscription.plan?.name}</span>
             <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
-              {subscription.remainingWashes} / {subscription.plan?.washCount} washes left
+              {subscription.remainingWashes} / {subscription.washCount} washes left
             </span>
           </div>
         </div>

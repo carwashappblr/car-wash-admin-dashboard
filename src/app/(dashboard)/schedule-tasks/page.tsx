@@ -264,7 +264,7 @@ export default function ScheduleTasksPage() {
                         <div className="space-y-1">
                           <div className="flex justify-between items-center text-xs">
                             <span className="text-gray-500">Allowed:</span>
-                            <span className="font-semibold text-gray-900">{sub.plan?.washCount}</span>
+                            <span className="font-semibold text-gray-900">{sub.washCount}</span>
                           </div>
                           <div className="flex justify-between items-center text-xs">
                             <span className="text-gray-500">Used:</span>

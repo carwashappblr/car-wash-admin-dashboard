@@ -6,6 +6,9 @@ import { CreditCard, Plus } from 'lucide-react';
 import { CreateSubscriptionPlanModal } from '@/components/subscriptions/CreateSubscriptionPlanModal';
 import { SubscriptionPlansTable } from '@/components/subscriptions/SubscriptionPlansTable';
 import { useSubscriptionPlans } from '@/hooks/useSubscriptionPlans';
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '@/api/client';
+import { Community } from '@/types';
 
 function getErrorMessage(error: unknown) {
   if (error instanceof AxiosError) {
@@ -21,7 +24,20 @@ function getErrorMessage(error: unknown) {
 
 export default function SubscriptionPlansPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const { data, isLoading, error, refetch, isFetching } = useSubscriptionPlans();
+  const [selectedCommunityId, setSelectedCommunityId] = useState<string>('');
+
+  const { data, isLoading, error, refetch, isFetching } = useSubscriptionPlans(
+    selectedCommunityId || undefined
+  );
+
+  const { data: communities } = useQuery({
+    queryKey: ['communities'],
+    queryFn: () => apiClient.get<Community[]>('/communities').then((res) => res.data),
+  });
+
+  const availableCommunities = (Array.isArray(communities) ? communities : []).filter(
+    (c) => c.isActive
+  );
 
   const plans = useMemo(() => (Array.isArray(data) ? data : []), [data]);
   const errorMessage = error ? getErrorMessage(error) : null;
@@ -51,11 +67,23 @@ export default function SubscriptionPlansPage() {
             <div className="rounded-2xl bg-white p-3 text-blue-600 shadow-sm">
               <CreditCard className="h-6 w-6" />
             </div>
-            <div>
+            <div className="space-y-2">
               <h2 className="text-lg font-bold text-gray-900">Plan Catalog</h2>
-              <p className="mt-1 text-sm font-medium text-gray-600">
-                Keep plans centralized here so future edit and deactivate actions can reuse the same data model and UI shell.
-              </p>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <span className="text-sm text-gray-600 font-medium">Filter by Community:</span>
+                <select
+                  value={selectedCommunityId}
+                  onChange={(e) => setSelectedCommunityId(e.target.value)}
+                  className="rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="">All Communities</option>
+                  {availableCommunities.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.city})
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-3 rounded-2xl bg-white/80 px-4 py-3 shadow-sm">

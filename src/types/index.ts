@@ -45,24 +45,39 @@ export interface Task {
   machine?: Machine;
 }
 
+export interface PricingTier {
+  id: string;
+  planId: string;
+  carType: 'HATCHBACK' | 'SEDAN' | 'SUV';
+  washType: 'EXTERIOR' | 'EXTERIOR_INTERIOR' | 'PREMIUM';
+  priceMultiplier: number;
+  surcharge: number;
+}
+
 export interface SubscriptionPlan {
   id: string;
+  communityId: string;
   name: string;
   description?: string | null;
-  price: number;
+  basePrice: number;
+  baseWashCount: number;
+  extraWashPrice: number;
   durationDays: number;
-  washCount: number;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  pricingTiers?: PricingTier[];
 }
 
 export interface CreateSubscriptionPlanPayload {
+  communityId: string;
   name: string;
   description?: string;
-  price: number;
+  basePrice: number;
+  baseWashCount: number;
   durationDays: number;
-  washCount: number;
+  extraWashPrice?: number;
+  pricingTiers?: Omit<PricingTier, 'id' | 'planId'>[];
 }
 
 export interface Tower {
@@ -115,6 +130,10 @@ export interface UserSubscription {
   startDate: string;
   endDate: string;
   washesUsed: number;
+  washCount: number;
+  carType: 'HATCHBACK' | 'SEDAN' | 'SUV';
+  washType: 'EXTERIOR' | 'EXTERIOR_INTERIOR' | 'PREMIUM';
+  computedPrice: number;
   remainingWashes: number;
   createdAt: string;
   updatedAt: string;
