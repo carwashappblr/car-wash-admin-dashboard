@@ -6,10 +6,12 @@ import { Machine } from '@/types';
 import { Search, Loader2, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { CreateMachineModal } from '@/components/machines/CreateMachineModal';
+import { EditMachineModal } from '@/components/machines/EditMachineModal';
 
 export default function MachinesPage() {
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingMachineId, setEditingMachineId] = useState<string | null>(null);
 
   const { data: machines, isLoading, refetch, error } = useQuery({
     queryKey: ['machines'],
@@ -29,6 +31,9 @@ export default function MachinesPage() {
     const searchTerm = search.toLowerCase();
     return name.includes(searchTerm) || email.includes(searchTerm);
   });
+  const editingMachine = filteredMachines.find((machine) => machine.id === editingMachineId)
+    ?? (Array.isArray(machines) ? machines : []).find((machine) => machine.id === editingMachineId)
+    ?? null;
 
   return (
     <div className="space-y-6">
@@ -101,7 +106,10 @@ export default function MachinesPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <button className="text-sm font-semibold text-blue-600 hover:text-blue-800 transition-colors">
+                      <button
+                        onClick={() => setEditingMachineId(machine.id)}
+                        className="text-sm font-semibold text-blue-600 hover:text-blue-800 transition-colors"
+                      >
                         Edit
                       </button>
                     </td>
@@ -116,6 +124,13 @@ export default function MachinesPage() {
       <CreateMachineModal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
+        onSuccess={() => refetch()}
+      />
+      <EditMachineModal
+        key={editingMachineId ?? 'machine-edit-modal'}
+        isOpen={editingMachineId !== null}
+        machine={editingMachine}
+        onClose={() => setEditingMachineId(null)}
         onSuccess={() => refetch()}
       />
     </div>

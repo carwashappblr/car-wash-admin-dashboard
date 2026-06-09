@@ -22,6 +22,8 @@ interface CreateMachinePayload {
   towerId: string;
 }
 
+const normalizeEmail = (value: string) => value.trim().toLowerCase();
+
 export function CreateMachineModal({ isOpen, onClose, onSuccess }: CreateMachineModalProps) {
   const [formData, setFormData] = useState<CreateMachinePayload>({
     name: '',
@@ -64,14 +66,30 @@ export function CreateMachineModal({ isOpen, onClose, onSuccess }: CreateMachine
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.towerId) {
+    const cleanedPayload: CreateMachinePayload = {
+      ...formData,
+      name: formData.name.trim(),
+      email: normalizeEmail(formData.email),
+      phone: formData.phone.trim(),
+      password: formData.password,
+      towerId: formData.towerId,
+    };
+
+    if (!cleanedPayload.name || !cleanedPayload.email || !cleanedPayload.password) {
+      toast.error('Missing required details', {
+        description: 'Machine name, email, and password are required.',
+      });
+      return;
+    }
+
+    if (!cleanedPayload.towerId) {
       toast.error('Select a tower', {
         description: 'Please choose a community and tower before creating the machine.',
       });
       return;
     }
 
-    mutation.mutate(formData);
+    mutation.mutate(cleanedPayload);
   };
 
   if (!isOpen) return null;
@@ -129,9 +147,12 @@ export function CreateMachineModal({ isOpen, onClose, onSuccess }: CreateMachine
               type="email"
               required
               value={formData.email}
-              onChange={e => setFormData({ ...formData, email: e.target.value })}
+              onChange={e => setFormData({ ...formData, email: normalizeEmail(e.target.value) })}
               className="w-full bg-gray-50/50 border border-gray-200 text-sm rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-gray-900 placeholder:text-gray-400 placeholder:font-normal"
               placeholder="machine@carwash.com"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
             />
           </div>
 

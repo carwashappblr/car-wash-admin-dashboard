@@ -1,86 +1,118 @@
 'use client';
 
+import { useMemo, useState } from 'react';
+import { AxiosError } from 'axios';
+import { CreditCard, Plus } from 'lucide-react';
+import { CreateSubscriptionPlanModal } from '@/components/subscriptions/CreateSubscriptionPlanModal';
+import { SubscriptionPlansTable } from '@/components/subscriptions/SubscriptionPlansTable';
+import { useSubscriptionPlans } from '@/hooks/useSubscriptionPlans';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/api/client';
-import { SubscriptionPlan } from '@/types';
-import { Loader2, Plus, Star } from 'lucide-react';
+import { Community } from '@/types';
 
-export default function SubscriptionsPage() {
-  const { data: plans, isLoading } = useQuery({
-    queryKey: ['subscription-plans'],
-    queryFn: () => apiClient.get<SubscriptionPlan[]>('/subscription-plans').then(res => res.data)
+function getErrorMessage(error: unknown) {
+  if (error instanceof AxiosError) {
+    return error.response?.data?.message || error.message;
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return 'Something went wrong while fetching subscription plans.';
+}
+
+export default function SubscriptionPlansPage() {
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [selectedCommunityId, setSelectedCommunityId] = useState<string>('');
+
+  const { data, isLoading, error, refetch, isFetching } = useSubscriptionPlans(
+    selectedCommunityId || undefined
+  );
+
+  const { data: communities } = useQuery({
+    queryKey: ['communities'],
+    queryFn: () => apiClient.get<Community[]>('/communities').then((res) => res.data),
   });
 
+  const availableCommunities = (Array.isArray(communities) ? communities : []).filter(
+    (c) => c.isActive
+  );
+
+  const plans = useMemo(() => (Array.isArray(data) ? data : []), [data]);
+  const errorMessage = error ? getErrorMessage(error) : null;
+
   return (
-    <div className="space-y-8 p-2">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="space-y-6">
+      <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Subscription Plans</h1>
-          <p className="text-sm text-gray-500 font-medium">Manage pricing tiers and customer packages</p>
+          <p className="text-sm font-medium text-gray-500">
+            Manage admin-created subscription plans, pricing, duration, and wash limits.
+          </p>
         </div>
-        <button className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-5 py-2.5 rounded-xl font-semibold shadow-lg shadow-indigo-500/25 transition-all flex items-center gap-2 text-sm group">
-          <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform" />
-          Create New Plan
+        <button
+          type="button"
+          onClick={() => setIsCreateModalOpen(true)}
+          className="group flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-500/20 transition-all hover:bg-blue-700"
+        >
+          <Plus className="h-4 w-4 transition-transform group-hover:rotate-90" />
+          Add Subscription Plan
         </button>
       </div>
 
-      {isLoading ? (
-        <div className="flex justify-center items-center py-24 w-full">
-          <Loader2 className="w-10 h-10 animate-spin text-indigo-500" />
-        </div>
-      ) : plans?.length === 0 ? (
-        <div className="text-center py-24 bg-white rounded-3xl border border-gray-100 shadow-sm">
-          <Star className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-bold text-gray-900">No plans found</h3>
-          <p className="text-gray-500 mt-2 max-w-sm mx-auto text-sm">You haven't created any subscription plans yet. Add one to offer recurring services.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {plans?.map((plan, index) => (
-            <div 
-              key={plan.id} 
-              className={`bg-white rounded-3xl border p-8 shadow-sm hover:shadow-xl transition-all relative overflow-hidden group ${
-                index === 1 ? 'border-indigo-500 ring-1 ring-indigo-500/50 shadow-indigo-500/10' : 'border-gray-100'
-              }`}
-            >
-              {index === 1 && (
-                <div className="absolute top-0 right-0 bg-indigo-500 text-white text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-bl-xl">
-                  Most Popular
-                </div>
-              )}
-              
-              <div className="absolute -right-6 -top-6 w-32 h-32 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 rounded-full blur-[40px] group-hover:scale-150 transition-transform" />
-              
-              <h3 className="text-xl font-bold text-gray-900">{plan.name}</h3>
-              <div className="mt-4 flex items-baseline text-gray-900">
-                <span className="text-4xl font-black tracking-tight">${plan.price}</span>
-                <span className="ml-1 text-sm font-semibold text-gray-500">/{plan.durationInDays} days</span>
-              </div>
-              
-              <ul className="mt-8 space-y-4">
-                {plan.features?.map((feature, i) => (
-                  <li key={i} className="flex items-start gap-3">
-                    <div className="mt-1 w-4 h-4 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center flex-shrink-0">
-                      <Star className="w-2.5 h-2.5" />
-                    </div>
-                    <span className="text-sm font-medium text-gray-600">{feature}</span>
-                  </li>
-                ))}
-              </ul>
-              
-              <button 
-                className={`w-full mt-8 py-3 rounded-xl font-semibold transition-all ${
-                  index === 1 
-                    ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/25' 
-                    : 'bg-gray-50 hover:bg-gray-100 text-gray-900 border border-gray-200'
-                }`}
-              >
-                Edit Plan
-              </button>
+      <div className="rounded-3xl border border-gray-100 bg-gradient-to-r from-blue-50 via-white to-cyan-50 p-6 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-start gap-4">
+            <div className="rounded-2xl bg-white p-3 text-blue-600 shadow-sm">
+              <CreditCard className="h-6 w-6" />
             </div>
-          ))}
+            <div className="space-y-2">
+              <h2 className="text-lg font-bold text-gray-900">Plan Catalog</h2>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <span className="text-sm text-gray-600 font-medium">Filter by Community:</span>
+                <select
+                  value={selectedCommunityId}
+                  onChange={(e) => setSelectedCommunityId(e.target.value)}
+                  className="rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="">All Communities</option>
+                  {availableCommunities.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.city})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 rounded-2xl bg-white/80 px-4 py-3 shadow-sm">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Total Plans</p>
+              <p className="text-xl font-bold text-gray-900">{plans.length}</p>
+            </div>
+            <div className="h-10 w-px bg-gray-100" />
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Catalog Status</p>
+              <p className="text-sm font-semibold text-gray-700">
+                {isLoading || isFetching ? 'Syncing...' : 'Up to date'}
+              </p>
+            </div>
+          </div>
         </div>
-      )}
+      </div>
+
+      <SubscriptionPlansTable
+        plans={plans}
+        isLoading={isLoading}
+        errorMessage={errorMessage}
+        onRetry={() => refetch()}
+      />
+
+      <CreateSubscriptionPlanModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+      />
     </div>
   );
 }

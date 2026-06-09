@@ -45,13 +45,39 @@ export interface Task {
   machine?: Machine;
 }
 
+export interface PricingTier {
+  id: string;
+  planId: string;
+  carType: 'HATCHBACK' | 'SEDAN' | 'SUV';
+  washType: 'EXTERIOR' | 'EXTERIOR_INTERIOR' | 'PREMIUM';
+  priceMultiplier: number;
+  surcharge: number;
+}
+
 export interface SubscriptionPlan {
   id: string;
+  communityId: string;
   name: string;
-  price: number;
-  durationInDays: number;
-  features: string[];
+  description?: string | null;
+  basePrice: number;
+  baseWashCount: number;
+  extraWashPrice: number;
+  durationDays: number;
+  isActive: boolean;
   createdAt: string;
+  updatedAt: string;
+  pricingTiers?: PricingTier[];
+}
+
+export interface CreateSubscriptionPlanPayload {
+  communityId: string;
+  name: string;
+  description?: string;
+  basePrice: number;
+  baseWashCount: number;
+  durationDays: number;
+  extraWashPrice?: number;
+  pricingTiers?: Omit<PricingTier, 'id' | 'planId'>[];
 }
 
 export interface Tower {
@@ -73,7 +99,64 @@ export interface Community {
   towers: Tower[];
 }
 
+export interface Car {
+  id: string;
+  plateNumber: string;
+  color: string;
+  make: string;
+  model: string;
+  year?: number;
+  defaultSlotNumber?: string;
+  towerId?: string;
+  tower?: {
+    id: string;
+    name: string;
+    communityId: string;
+    community?: {
+      id: string;
+      name: string;
+      city: string;
+      address: string;
+    };
+  };
+}
+
+export interface UserSubscription {
+  id: string;
+  userId: string;
+  planId: string;
+  carId: string;
+  isActive: boolean;
+  startDate: string;
+  endDate: string;
+  washesUsed: number;
+  washCount: number;
+  carType: 'HATCHBACK' | 'SEDAN' | 'SUV';
+  washType: 'EXTERIOR' | 'EXTERIOR_INTERIOR' | 'PREMIUM';
+  computedPrice: number;
+  remainingWashes: number;
+  createdAt: string;
+  updatedAt: string;
+  user: {
+    id: string;
+    name: string;
+    phone: string;
+    email: string;
+  };
+  plan: SubscriptionPlan;
+  car: Car;
+  tasks: Array<{
+    id: string;
+    status: TaskStatus;
+    scheduledDate: string | null;
+    machineId: string | null;
+    slotId: string | null;
+    createdAt: string;
+  }>;
+}
+
 export interface AuthResponse {
   accessToken: string;
   user: User;
 }
+
