@@ -268,7 +268,7 @@ export default function ReportsPage() {
                         outerRadius={80}
                         innerRadius={50}
                         paddingAngle={5}
-                        label={(entry) => entry.name}
+                        label={(entry: any) => entry.name}
                       >
                         {Object.entries(overview.tasks.byStatus).map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -299,7 +299,7 @@ export default function ReportsPage() {
                         outerRadius={80}
                         innerRadius={50}
                         paddingAngle={5}
-                        label={(entry) => entry.name}
+                        label={(entry: any) => entry.name}
                       >
                          <Cell fill="#10b981" />
                          <Cell fill="#94a3b8" />
@@ -422,13 +422,13 @@ export default function ReportsPage() {
                             cx="50%"
                             cy="50%"
                             outerRadius={80}
-                            label={(entry) => entry.planName}
+                            label={(entry: any) => entry.planName}
                           >
                             {revenueData.byPlan.map((entry, index) => (
                               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                             ))}
                           </Pie>
-                          <RechartsTooltip formatter={(value: number) => `₹${value.toLocaleString()}`} />
+                          <RechartsTooltip formatter={(value: any) => `₹${value.toLocaleString()}`} />
                         </PieChart>
                       </ResponsiveContainer>
                     ) : <p className="text-sm text-gray-500">No data available.</p>}
@@ -447,13 +447,13 @@ export default function ReportsPage() {
                             cx="50%"
                             cy="50%"
                             outerRadius={80}
-                            label={(entry) => entry.washType.replace('_', ' ')}
+                            label={(entry: any) => entry.washType.replace('_', ' ')}
                           >
                             {revenueData.byWashType.map((entry, index) => (
                               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                             ))}
                           </Pie>
-                          <RechartsTooltip formatter={(value: number) => `₹${value.toLocaleString()}`} />
+                          <RechartsTooltip formatter={(value: any) => `₹${value.toLocaleString()}`} />
                         </PieChart>
                       </ResponsiveContainer>
                     ) : <p className="text-sm text-gray-500">No data available.</p>}

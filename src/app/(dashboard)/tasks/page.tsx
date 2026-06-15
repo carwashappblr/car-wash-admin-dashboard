@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/api/client';
-import { Community, Task, TaskStatus } from '@/types';
+import { Community, Task, TaskStatus, InstantWash } from '@/types';
 import { CheckCircle2, Loader2, Play } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -30,6 +30,7 @@ const getStatusColor = (status: string) => {
 
 export default function TasksPage() {
   const [activeTab, setActiveTab] = useState<TaskStatus>(TaskStatus.PENDING);
+  const [taskType, setTaskType] = useState<'subscription' | 'instant'>('subscription');
   const [selectedCommunityId, setSelectedCommunityId] = useState('');
   const [selectedTowerId, setSelectedTowerId] = useState('');
 
@@ -45,7 +46,7 @@ export default function TasksPage() {
   const selectedCommunity = availableCommunities.find((community) => community.id === selectedCommunityId);
   const availableTowers = selectedCommunity?.towers.filter((tower) => tower.isActive) ?? [];
 
-  const { data: tasks, isLoading, isFetching, refetch } = useQuery({
+  const { data: subscriptionTasks, isLoading: subLoading, isFetching: subFetching, refetch: refetchSub } = useQuery({
     queryKey: ['tower-tasks', selectedTowerId, activeTab],
     queryFn: () =>
       apiClient
@@ -53,12 +54,33 @@ export default function TasksPage() {
           params: { status: activeTab },
         })
         .then((res) => res.data),
-    enabled: Boolean(selectedTowerId),
+    enabled: Boolean(selectedTowerId) && taskType === 'subscription',
   });
 
+  const { data: instantWashes, isLoading: instantLoading, isFetching: instantFetching, refetch: refetchInstant } = useQuery({
+    queryKey: ['tower-instant-washes', selectedTowerId, activeTab],
+    queryFn: () =>
+      apiClient
+        .get<InstantWash[]>('/instant-washes', {
+          params: { towerId: selectedTowerId, status: activeTab },
+        })
+        .then((res) => res.data),
+    enabled: Boolean(selectedTowerId) && taskType === 'instant',
+  });
+
+  const tasks = taskType === 'subscription' ? subscriptionTasks : instantWashes;
+  const isLoading = taskType === 'subscription' ? subLoading : instantLoading;
+  const isFetching = taskType === 'subscription' ? subFetching : instantFetching;
+  const refetch = taskType === 'subscription' ? refetchSub : refetchInstant;
+
   const mutation = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: TaskStatus }) =>
-      apiClient.patch(`/tasks/${id}/status`, { status }),
+    mutationFn: ({ id, status, paymentStatus }: { id: string; status?: TaskStatus; paymentStatus?: 'PAID' | 'UNPAID' }) => {
+      if (taskType === 'subscription') {
+        return apiClient.patch(`/tasks/${id}/status`, { status });
+      } else {
+        return apiClient.patch(`/instant-washes/${id}`, { status, paymentStatus });
+      }
+    },
     onSuccess: () => {
       toast.success('Task Updated', { description: 'The wash status has been changed successfully.' });
       refetch();
@@ -79,7 +101,7 @@ export default function TasksPage() {
     setActiveTab(TaskStatus.PENDING);
   };
 
-  const renderAction = (task: Task) => {
+  const renderAction = (task: Task | InstantWash) => {
     if (activeTab === TaskStatus.PENDING) {
       return (
         <button
@@ -119,19 +141,46 @@ export default function TasksPage() {
           <p className="text-sm text-gray-500 font-medium">Monitor tower-specific car wash activity and history</p>
         </div>
 
-        <div className="flex bg-white rounded-xl shadow-sm border border-gray-100 p-1">
-          {TASK_TABS.map((tab) => (
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+          <div className="flex bg-white rounded-xl shadow-sm border border-gray-100 p-1">
             <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              disabled={!selectedTowerId}
+              onClick={() => {
+                setTaskType('subscription');
+                setActiveTab(TaskStatus.PENDING);
+              }}
               className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide transition-all ${
-                activeTab === tab.key ? 'bg-blue-50 text-blue-700' : 'text-gray-500 hover:text-gray-900'
-              } ${!selectedTowerId ? 'opacity-50 cursor-not-allowed' : ''}`}
+                taskType === 'subscription' ? 'bg-blue-50 text-blue-700' : 'text-gray-500 hover:text-gray-900'
+              }`}
             >
-              {tab.label}
+              Subscription
             </button>
-          ))}
+            <button
+              onClick={() => {
+                setTaskType('instant');
+                setActiveTab(TaskStatus.PENDING);
+              }}
+              className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide transition-all ${
+                taskType === 'instant' ? 'bg-blue-50 text-blue-700' : 'text-gray-500 hover:text-gray-900'
+              }`}
+            >
+              Instant
+            </button>
+          </div>
+
+          <div className="flex bg-white rounded-xl shadow-sm border border-gray-100 p-1">
+            {TASK_TABS.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                disabled={!selectedTowerId}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide transition-all ${
+                  activeTab === tab.key ? 'bg-blue-50 text-blue-700' : 'text-gray-500 hover:text-gray-900'
+                } ${!selectedTowerId ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -183,8 +232,10 @@ export default function TasksPage() {
             <thead className="bg-gray-50/80 text-xs uppercase font-semibold text-gray-500 tracking-wider">
               <tr>
                 <th className="px-6 py-4">Task Ref</th>
-                <th className="px-6 py-4">Customer</th>
-                <th className="px-6 py-4">Status</th>
+                <th className="px-6 py-4">{taskType === 'subscription' ? 'Customer' : 'Guest / Vehicle'}</th>
+                <th className="px-6 py-4">{taskType === 'subscription' ? 'Status' : 'Plan / Price'}</th>
+                {taskType === 'instant' && <th className="px-6 py-4">Payment</th>}
+                {taskType === 'instant' && <th className="px-6 py-4">Status</th>}
                 <th className="px-6 py-4">Assigned To</th>
                 <th className="px-6 py-4 text-right">Action</th>
               </tr>
@@ -192,7 +243,7 @@ export default function TasksPage() {
             <tbody className="divide-y divide-gray-100">
               {!selectedTowerId ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center">
+                  <td colSpan={taskType === 'subscription' ? 5 : 7} className="px-6 py-12 text-center">
                     <div className="space-y-1">
                       <p className="font-semibold text-gray-700">Select a tower to load tasks.</p>
                       <p className="text-sm text-gray-500">Choose a community first, then pick one of its towers.</p>
@@ -201,24 +252,31 @@ export default function TasksPage() {
                 </tr>
               ) : isLoading || isFetching ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center">
+                  <td colSpan={taskType === 'subscription' ? 5 : 7} className="px-6 py-12 text-center">
                     <Loader2 className="w-6 h-6 animate-spin text-blue-500 mx-auto" />
                   </td>
                 </tr>
               ) : !tasks?.length ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center">
+                  <td colSpan={taskType === 'subscription' ? 5 : 7} className="px-6 py-12 text-center">
                     <div className="space-y-1">
                       <p className="font-semibold text-gray-700">No tasks in this tab.</p>
                       <p className="text-sm text-gray-500">This tower has no {activeTab.replace('_', ' ').toLowerCase()} tasks right now.</p>
                     </div>
                   </td>
                 </tr>
-              ) : (
-                tasks.map((task) => (
+              ) : taskType === 'subscription' ? (
+                (tasks as Task[]).map((task) => (
                   <tr key={task.id} className="hover:bg-gray-50/50 transition-colors">
                     <td className="px-6 py-4 font-mono text-xs text-gray-500">{task.id.split('-')[0]}</td>
-                    <td className="px-6 py-4 font-medium text-gray-900">{task.user?.name || 'Customer'}</td>
+                    <td className="px-6 py-4 font-medium text-gray-900">
+                      <div>{task.user?.name || 'Customer'}</div>
+                      {task.car && (
+                        <div className="text-xs text-gray-500 font-normal">
+                          {task.car.make} {task.car.model} • <span className="font-mono">{task.car.plateNumber}</span>
+                        </div>
+                      )}
+                    </td>
                     <td className="px-6 py-4">
                       <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${getStatusColor(task.status)}`}>
                         {task.status.replace('_', ' ')}
@@ -230,6 +288,55 @@ export default function TasksPage() {
                     <td className="px-6 py-4 text-right">{renderAction(task)}</td>
                   </tr>
                 ))
+              ) : (
+                (tasks as InstantWash[]).map((wash) => {
+                  const guestName = [wash.carMake, wash.carModel].filter(Boolean).join(' ') || 'Guest Car';
+                  return (
+                    <tr key={wash.id} className="hover:bg-gray-50/50 transition-colors">
+                      <td className="px-6 py-4 font-mono text-xs text-gray-500">{wash.id.split('-')[0]}</td>
+                      <td className="px-6 py-4 font-medium text-gray-900">
+                        <div>{guestName}</div>
+                        <div className="text-xs text-gray-500 font-mono font-normal">
+                          {wash.plateNumber}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="font-medium text-gray-900">
+                          {wash.carType} • {wash.washType.replace('_', ' ')}
+                        </div>
+                        <div className="text-xs text-blue-600 font-bold">₹{wash.price}</div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            mutation.mutate({
+                              id: wash.id,
+                              paymentStatus: wash.paymentStatus === 'PAID' ? 'UNPAID' : 'PAID',
+                            })
+                          }
+                          disabled={mutation.isPending}
+                          className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border transition-colors ${
+                            wash.paymentStatus === 'PAID'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                              : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                          }`}
+                        >
+                          {wash.paymentStatus}
+                        </button>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${getStatusColor(wash.status)}`}>
+                          {wash.status.replace('_', ' ')}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-gray-500">
+                        {wash.machine?.name || <span className="text-gray-400 italic">Unassigned</span>}
+                      </td>
+                      <td className="px-6 py-4 text-right">{renderAction(wash)}</td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

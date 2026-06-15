@@ -43,6 +43,7 @@ export interface Task {
   updatedAt: string;
   user?: User;
   machine?: Machine;
+  car?: Car;
 }
 
 export interface PricingTier {
@@ -159,4 +160,48 @@ export interface AuthResponse {
   accessToken: string;
   user: User;
 }
+
+export interface InstantWashPricing {
+  id: string;
+  communityId: string;
+  carType: 'HATCHBACK' | 'SEDAN' | 'SUV';
+  washType: 'EXTERIOR' | 'EXTERIOR_INTERIOR' | 'PREMIUM';
+  price: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateInstantWashPricingPayload {
+  communityId: string;
+  carType: 'HATCHBACK' | 'SEDAN' | 'SUV';
+  washType: 'EXTERIOR' | 'EXTERIOR_INTERIOR' | 'PREMIUM';
+  price: number;
+  isActive?: boolean;
+}
+
+export interface InstantWash {
+  id: string;
+  machineId?: string | null;
+  communityId: string;
+  towerId?: string | null;
+  plateNumber: string;
+  carMake?: string | null;
+  carModel?: string | null;
+  carType: 'HATCHBACK' | 'SEDAN' | 'SUV';
+  washType: 'EXTERIOR' | 'EXTERIOR_INTERIOR' | 'PREMIUM';
+  price: number;
+  paymentStatus: 'PAID' | 'UNPAID';
+  scheduledDate: string;
+  status: TaskStatus;
+  completedOn?: string | null;
+  notes?: string | null;
+  source: 'MACHINE' | 'USER';
+  createdAt: string;
+  updatedAt: string;
+  machine?: { id: string; name: string } | null;
+  community?: { id: string; name: string } | null;
+  tower?: { id: string; name: string } | null;
+}
+
 
