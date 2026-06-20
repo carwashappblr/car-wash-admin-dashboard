@@ -17,6 +17,7 @@ export interface User {
   name: string;
   role: Role;
   isActive?: boolean;
+  phone?: string;
   createdAt: string;
 }
 
@@ -44,6 +45,10 @@ export interface Task {
   user?: User;
   machine?: Machine;
   car?: Car;
+  isSubscriptionTask?: boolean;
+  washType?: 'EXTERIOR' | 'EXTERIOR_INTERIOR' | 'PREMIUM' | null;
+  scheduledDate?: string | null;
+  completedOn?: string | null;
 }
 
 export interface PricingTier {

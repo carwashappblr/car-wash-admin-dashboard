@@ -28,6 +28,18 @@ const getStatusColor = (status: string) => {
   }
 };
 
+const formatDate = (dateStr: string | null | undefined) => {
+  if (!dateStr) return 'Not Scheduled';
+  return new Intl.DateTimeFormat('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  }).format(new Date(dateStr));
+};
+
 export default function TasksPage() {
   const [activeTab, setActiveTab] = useState<TaskStatus>(TaskStatus.PENDING);
   const [taskType, setTaskType] = useState<'subscription' | 'instant'>('subscription');
@@ -230,20 +242,30 @@ export default function TasksPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-gray-600">
             <thead className="bg-gray-50/80 text-xs uppercase font-semibold text-gray-500 tracking-wider">
-              <tr>
-                <th className="px-6 py-4">Task Ref</th>
-                <th className="px-6 py-4">{taskType === 'subscription' ? 'Customer' : 'Guest / Vehicle'}</th>
-                <th className="px-6 py-4">{taskType === 'subscription' ? 'Status' : 'Plan / Price'}</th>
-                {taskType === 'instant' && <th className="px-6 py-4">Payment</th>}
-                {taskType === 'instant' && <th className="px-6 py-4">Status</th>}
-                <th className="px-6 py-4">Assigned To</th>
-                <th className="px-6 py-4 text-right">Action</th>
-              </tr>
+              {taskType === 'subscription' ? (
+                <tr>
+                  <th className="px-6 py-4">Car & Customer</th>
+                  <th className="px-6 py-4">Wash Type</th>
+                  <th className="px-6 py-4">Scheduled Date</th>
+                  <th className="px-6 py-4">Assigned To</th>
+                  <th className="px-6 py-4">Status</th>
+                  <th className="px-6 py-4 text-right">Action</th>
+                </tr>
+              ) : (
+                <tr>
+                  <th className="px-6 py-4">Guest / Vehicle</th>
+                  <th className="px-6 py-4">Plan / Price</th>
+                  <th className="px-6 py-4">Payment</th>
+                  <th className="px-6 py-4">Status</th>
+                  <th className="px-6 py-4">Assigned To</th>
+                  <th className="px-6 py-4 text-right">Action</th>
+                </tr>
+              )}
             </thead>
             <tbody className="divide-y divide-gray-100">
               {!selectedTowerId ? (
                 <tr>
-                  <td colSpan={taskType === 'subscription' ? 5 : 7} className="px-6 py-12 text-center">
+                  <td colSpan={6} className="px-6 py-12 text-center">
                     <div className="space-y-1">
                       <p className="font-semibold text-gray-700">Select a tower to load tasks.</p>
                       <p className="text-sm text-gray-500">Choose a community first, then pick one of its towers.</p>
@@ -252,13 +274,13 @@ export default function TasksPage() {
                 </tr>
               ) : isLoading || isFetching ? (
                 <tr>
-                  <td colSpan={taskType === 'subscription' ? 5 : 7} className="px-6 py-12 text-center">
+                  <td colSpan={6} className="px-6 py-12 text-center">
                     <Loader2 className="w-6 h-6 animate-spin text-blue-500 mx-auto" />
                   </td>
                 </tr>
               ) : !tasks?.length ? (
                 <tr>
-                  <td colSpan={taskType === 'subscription' ? 5 : 7} className="px-6 py-12 text-center">
+                  <td colSpan={6} className="px-6 py-12 text-center">
                     <div className="space-y-1">
                       <p className="font-semibold text-gray-700">No tasks in this tab.</p>
                       <p className="text-sm text-gray-500">This tower has no {activeTab.replace('_', ' ').toLowerCase()} tasks right now.</p>
@@ -268,22 +290,38 @@ export default function TasksPage() {
               ) : taskType === 'subscription' ? (
                 (tasks as Task[]).map((task) => (
                   <tr key={task.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-6 py-4 font-mono text-xs text-gray-500">{task.id.split('-')[0]}</td>
                     <td className="px-6 py-4 font-medium text-gray-900">
-                      <div>{task.user?.name || 'Customer'}</div>
-                      {task.car && (
-                        <div className="text-xs text-gray-500 font-normal">
-                          {task.car.make} {task.car.model} • <span className="font-mono">{task.car.plateNumber}</span>
+                      {task.car ? (
+                        <div>
+                          <span className="font-semibold text-gray-900">{task.car.make} {task.car.model}</span>
+                          {task.car.color && <span className="text-gray-500 text-xs font-normal"> ({task.car.color})</span>}
+                          <div className="text-xs font-mono font-normal text-gray-600 mt-0.5">
+                            Plate: {task.car.plateNumber}
+                            {task.car.defaultSlotNumber && ` • Slot: ${task.car.defaultSlotNumber}`}
+                          </div>
                         </div>
+                      ) : (
+                        <div className="text-gray-400 italic font-normal text-xs">No car details</div>
                       )}
+                      <div className="text-xs text-gray-500 font-medium mt-1">
+                        Owner: {task.user?.name || 'Unknown'} {task.user?.phone && `(${task.user.phone})`}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="px-2 py-1 rounded bg-blue-50 text-blue-700 text-xs font-semibold uppercase tracking-wider border border-blue-100">
+                        {task.washType ? task.washType.replace('_', ' ') : 'N/A'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600 font-medium">
+                      {formatDate(task.scheduledDate)}
+                    </td>
+                    <td className="px-6 py-4 text-gray-500 text-sm font-medium">
+                      {task.machine?.name || <span className="text-gray-400 italic font-normal">Unassigned</span>}
                     </td>
                     <td className="px-6 py-4">
                       <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${getStatusColor(task.status)}`}>
                         {task.status.replace('_', ' ')}
                       </span>
-                    </td>
-                    <td className="px-6 py-4 text-gray-500">
-                      {task.machine?.name || <span className="text-gray-400 italic">Unassigned</span>}
                     </td>
                     <td className="px-6 py-4 text-right">{renderAction(task)}</td>
                   </tr>
@@ -293,7 +331,6 @@ export default function TasksPage() {
                   const guestName = [wash.carMake, wash.carModel].filter(Boolean).join(' ') || 'Guest Car';
                   return (
                     <tr key={wash.id} className="hover:bg-gray-50/50 transition-colors">
-                      <td className="px-6 py-4 font-mono text-xs text-gray-500">{wash.id.split('-')[0]}</td>
                       <td className="px-6 py-4 font-medium text-gray-900">
                         <div>{guestName}</div>
                         <div className="text-xs text-gray-500 font-mono font-normal">
