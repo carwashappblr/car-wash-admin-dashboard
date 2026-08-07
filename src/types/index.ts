@@ -209,4 +209,22 @@ export interface InstantWash {
   tower?: { id: string; name: string } | null;
 }
 
+export interface BulkSchedulePayload {
+  userId: string;
+  carId: string;
+  subscriptionId: string;
+  machineId?: string;
+  slotId?: string;
+  scheduledDates: string[];
+  notes?: string;
+}
 
+export interface BulkScheduleResponse {
+  created: Task[];
+  count: number;
+}
+
+export interface MachineDailyCount {
+  date: string;
+  taskCount: number;
+}

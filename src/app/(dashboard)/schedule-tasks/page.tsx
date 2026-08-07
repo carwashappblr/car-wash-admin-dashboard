@@ -325,7 +325,7 @@ export default function ScheduleTasksPage() {
                             ? sub.remainingWashes <= 0
                               ? 'No Washes Left'
                               : 'Tasks Pending'
-                            : 'Schedule Wash'}
+                            : 'Schedule Washes'}
                         </button>
                       </td>
                     </tr>
