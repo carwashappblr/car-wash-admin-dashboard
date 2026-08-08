@@ -3,9 +3,16 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/api/client';
-import { Machine, UserSubscription, MachineDailyCount, TaskStatus, BulkSchedulePayload, BulkScheduleResponse } from '@/types';
+import {
+  Machine,
+  UserSubscription,
+  MachineDailyCount,
+  TaskStatus,
+  BulkModifyPayload,
+  BulkModifyResponse,
+} from '@/types';
 import { toast } from 'sonner';
-import { X, CalendarPlus, Loader2, ChevronLeft, ChevronRight, Check, Info } from 'lucide-react';
+import { X, CalendarPlus, Loader2, ChevronLeft, ChevronRight, Check, Info, RefreshCw } from 'lucide-react';
 import { clsx } from 'clsx';
 
 interface ScheduleWashModalProps {
@@ -17,8 +24,14 @@ interface ScheduleWashModalProps {
 
 const MAX_TASKS_PER_MACHINE_PER_DAY = 10;
 
-export function ScheduleWashModal({ isOpen, subscription, onClose, onSuccess }: ScheduleWashModalProps) {
-  const [selectedDates, setSelectedDates] = useState<string[]>([]);
+export function ScheduleWashModal({
+  isOpen,
+  subscription,
+  onClose,
+  onSuccess,
+}: ScheduleWashModalProps) {
+  const [unselectedPendingTaskIds, setUnselectedPendingTaskIds] = useState<string[]>([]);
+  const [newSelectedDates, setNewSelectedDates] = useState<string[]>([]);
   const [machineId, setMachineId] = useState('');
   const [slotId, setSlotId] = useState(subscription?.car?.defaultSlotNumber || '');
   const [notes, setNotes] = useState('');
@@ -34,7 +47,8 @@ export function ScheduleWashModal({ isOpen, subscription, onClose, onSuccess }: 
   // Reset state when modal opens
   useEffect(() => {
     if (isOpen) {
-      setSelectedDates([]);
+      setUnselectedPendingTaskIds([]);
+      setNewSelectedDates([]);
       setMachineId('');
       setNotes('');
       setCurrentMonth(new Date());
@@ -58,6 +72,12 @@ export function ScheduleWashModal({ isOpen, subscription, onClose, onSuccess }: 
   const activeMachines = useMemo(() => {
     return Array.isArray(machines) ? machines.filter((m) => m.isActive) : [];
   }, [machines]);
+
+  const communityMachines = useMemo(() => {
+    const communityId = subscription?.plan?.communityId;
+    if (!communityId) return activeMachines;
+    return activeMachines.filter((m) => m.tower?.communityId === communityId);
+  }, [activeMachines, subscription]);
 
   // Fetch machine daily task counts for the currently displayed month
   const startDateISO = useMemo(() => {
@@ -92,16 +112,18 @@ export function ScheduleWashModal({ isOpen, subscription, onClose, onSuccess }: 
     return map;
   }, [machineCounts]);
 
-  // Map existing tasks for this subscription by date string YYYY-MM-DD
+  // Map existing active/completed tasks for this subscription by date string YYYY-MM-DD
   const existingTasksByDateMap = useMemo(() => {
-    const map = new Map<string, { id: string; status: TaskStatus; formattedStatus: string }>();
+    const map = new Map<
+      string,
+      { id: string; status: TaskStatus; formattedStatus: string }
+    >();
     if (subscription?.tasks && Array.isArray(subscription.tasks)) {
       subscription.tasks.forEach((t) => {
-        if (t.scheduledDate) {
+        if (t.scheduledDate && t.status !== TaskStatus.CANCELLED) {
           const dateStr = t.scheduledDate.split('T')[0];
           let formattedStatus = 'Scheduled';
           if (t.status === TaskStatus.COMPLETED) formattedStatus = 'Completed';
-          if (t.status === TaskStatus.CANCELLED) formattedStatus = 'Cancelled';
           map.set(dateStr, { id: t.id, status: t.status, formattedStatus });
         }
       });
@@ -109,18 +131,22 @@ export function ScheduleWashModal({ isOpen, subscription, onClose, onSuccess }: 
     return map;
   }, [subscription]);
 
-  // Remaining available wash slots logic
-  const existingActiveTasksCount = useMemo(() => {
-    if (!subscription?.tasks) return 0;
-    return subscription.tasks.filter(
-      (t) => t.status === TaskStatus.PENDING || t.status === TaskStatus.IN_PROGRESS
-    ).length;
+  // Capacity math
+  const totalWashCapacity = subscription ? subscription.washCount - subscription.washesUsed : 0;
+
+  const existingPendingTasks = useMemo(() => {
+    if (!subscription?.tasks) return [];
+    return subscription.tasks.filter((t) => t.status === TaskStatus.PENDING);
   }, [subscription]);
 
-  const availableToSchedule = useMemo(() => {
-    if (!subscription) return 0;
-    return Math.max(0, subscription.remainingWashes - existingActiveTasksCount);
-  }, [subscription, existingActiveTasksCount]);
+  const existingInProgressTasks = useMemo(() => {
+    if (!subscription?.tasks) return [];
+    return subscription.tasks.filter((t) => t.status === TaskStatus.IN_PROGRESS);
+  }, [subscription]);
+
+  const activePendingCount = existingPendingTasks.length - unselectedPendingTaskIds.length;
+  const totalActiveScheduled = activePendingCount + existingInProgressTasks.length + newSelectedDates.length;
+  const availableSlotsRemaining = Math.max(0, totalWashCapacity - totalActiveScheduled);
 
   // Calendar grid days construction
   const calendarDays = useMemo(() => {
@@ -137,21 +163,18 @@ export function ScheduleWashModal({ isOpen, subscription, onClose, onSuccess }: 
       isMachineFull: boolean;
     }[] = [];
 
-    const startDayOfWeek = startDateOfMonth.getDay(); // 0 = Sun
+    const startDayOfWeek = startDateOfMonth.getDay();
     const totalDaysInMonth = endDateOfMonth.getDate();
 
-    // Today at midnight for comparison
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Subscription bounds
     const subStartDate = subscription ? new Date(subscription.startDate) : null;
     if (subStartDate) subStartDate.setHours(0, 0, 0, 0);
 
     const subEndDate = subscription ? new Date(subscription.endDate) : null;
     if (subEndDate) subEndDate.setHours(23, 59, 59, 999);
 
-    // Padding days from previous month
     const prevMonthLastDate = new Date(year, month, 0).getDate();
     for (let i = startDayOfWeek - 1; i >= 0; i--) {
       const d = new Date(year, month - 1, prevMonthLastDate - i);
@@ -169,7 +192,6 @@ export function ScheduleWashModal({ isOpen, subscription, onClose, onSuccess }: 
       });
     }
 
-    // Days of current month
     for (let day = 1; day <= totalDaysInMonth; day++) {
       const d = new Date(year, month, day);
       d.setHours(0, 0, 0, 0);
@@ -197,7 +219,6 @@ export function ScheduleWashModal({ isOpen, subscription, onClose, onSuccess }: 
       });
     }
 
-    // Fill remaining grid slots to complete last row
     const remainingGridCells = (7 - (days.length % 7)) % 7;
     for (let i = 1; i <= remainingGridCells; i++) {
       const d = new Date(year, month + 1, i);
@@ -226,50 +247,84 @@ export function ScheduleWashModal({ isOpen, subscription, onClose, onSuccess }: 
     countsByDateMap,
   ]);
 
-  // Multi-select toggle handler
+  // Click handler for date cells
   const handleDateClick = (dayObj: (typeof calendarDays)[0]) => {
-    if (!dayObj.isCurrentMonth) return;
-    if (dayObj.isPast) return;
-    if (dayObj.isOutsideSubscriptionRange) return;
-    if (dayObj.existingTask) return;
-    if (machineId && dayObj.isMachineFull) {
+    if (!dayObj.isCurrentMonth || dayObj.isPast || dayObj.isOutsideSubscriptionRange) return;
+
+    if (!machineId) {
+      toast.warning('Machine Required', {
+        description: 'Please select an assigned machine above before picking dates.',
+      });
+      return;
+    }
+
+    const { existingTask, dateStr } = dayObj;
+
+    // Handle existing tasks
+    if (existingTask) {
+      if (existingTask.status === TaskStatus.COMPLETED || existingTask.status === TaskStatus.IN_PROGRESS) {
+        return; // Locked
+      }
+      if (existingTask.status === TaskStatus.PENDING) {
+        // Toggle unselecting this pending task
+        if (unselectedPendingTaskIds.includes(existingTask.id)) {
+          // Re-select this task
+          setUnselectedPendingTaskIds((prev) => prev.filter((id) => id !== existingTask.id));
+        } else {
+          // Unselect/Cancel this task
+          setUnselectedPendingTaskIds((prev) => [...prev, existingTask.id]);
+        }
+        return;
+      }
+    }
+
+    // Handle new date selection
+    if (machineId && dayObj.isMachineFull && !newSelectedDates.includes(dateStr)) {
       toast.error('Machine limit reached', {
         description: `This machine already has ${MAX_TASKS_PER_MACHINE_PER_DAY} tasks on this day.`,
       });
       return;
     }
 
-    const dateStr = dayObj.dateStr;
-    if (selectedDates.includes(dateStr)) {
-      setSelectedDates((prev) => prev.filter((d) => d !== dateStr));
+    if (newSelectedDates.includes(dateStr)) {
+      setNewSelectedDates((prev) => prev.filter((d) => d !== dateStr));
     } else {
-      if (selectedDates.length >= availableToSchedule) {
+      if (availableSlotsRemaining <= 0) {
         toast.warning('Maximum washes reached', {
-          description: `You can only schedule up to ${availableToSchedule} wash(es) for this subscription.`,
+          description: `You have reached the maximum allowed washes (${totalWashCapacity}) for this subscription. Unselect a pending date or remove a new selection to free up space.`,
         });
         return;
       }
-      setSelectedDates((prev) => [...prev, dateStr].sort());
+      setNewSelectedDates((prev) => [...prev, dateStr].sort());
     }
   };
 
-  // Mutation for bulk scheduling
-  const mutation = useMutation<BulkScheduleResponse, Error, BulkSchedulePayload>({
-    mutationFn: (payload) => apiClient.post('/tasks/bulk', payload).then((res) => res.data),
+  // Mutation for bulk modification
+  const mutation = useMutation<BulkModifyResponse, Error, BulkModifyPayload>({
+    mutationFn: (payload) =>
+      apiClient.patch('/tasks/bulk-modify', payload).then((res) => res.data),
     onSuccess: (data) => {
-      toast.success(`${data.count} Wash(es) Scheduled Successfully`, {
-        description: 'Tasks have been added to the queue.',
-      });
-      setSelectedDates([]);
+      let desc = '';
+      if (data.createdCount > 0 && data.cancelledCount > 0) {
+        desc = `${data.cancelledCount} wash(es) cancelled, ${data.createdCount} new wash(es) scheduled.`;
+      } else if (data.createdCount > 0) {
+        desc = `${data.createdCount} new wash(es) scheduled.`;
+      } else if (data.cancelledCount > 0) {
+        desc = `${data.cancelledCount} wash(es) cancelled.`;
+      }
+
+      toast.success('Schedule Updated Successfully', { description: desc });
+      setUnselectedPendingTaskIds([]);
+      setNewSelectedDates([]);
       setMachineId('');
       setNotes('');
       onSuccess();
       onClose();
     },
     onError: (error: any) => {
-      toast.error('Scheduling Failed', {
-        description: error.response?.data?.message || 'Could not schedule tasks.',
-      });
+      const msg = error.response?.data?.message;
+      const description = Array.isArray(msg) ? msg.join(', ') : (typeof msg === 'string' ? msg : 'Could not update schedule.');
+      toast.error('Schedule Update Failed', { description });
     },
   });
 
@@ -277,22 +332,29 @@ export function ScheduleWashModal({ isOpen, subscription, onClose, onSuccess }: 
     e.preventDefault();
 
     if (!subscription) return;
-    if (selectedDates.length === 0) {
-      toast.error('Select at least one date', {
-        description: 'Please click on one or more days in the calendar to schedule washes.',
+    if (!machineId) {
+      toast.error('Machine Required', {
+        description: 'Please select an assigned machine before saving the schedule.',
+      });
+      return;
+    }
+    if (unselectedPendingTaskIds.length === 0 && newSelectedDates.length === 0) {
+      toast.info('No changes made', {
+        description: 'You have not selected or unselected any dates.',
       });
       return;
     }
 
-    const payload: BulkSchedulePayload = {
+    const payload: BulkModifyPayload = {
       userId: subscription.userId,
       carId: subscription.carId,
       subscriptionId: subscription.id,
-      scheduledDates: selectedDates,
-      notes: notes.trim() || `Subscription wash for ${subscription.plan.name}`,
+      machineId,
+      cancelTaskIds: unselectedPendingTaskIds,
+      newScheduledDates: newSelectedDates,
+      notes: notes.trim() || `Subscription wash schedule update for ${subscription.plan.name}`,
     };
 
-    if (machineId) payload.machineId = machineId;
     if (slotId) payload.slotId = slotId.trim();
 
     mutation.mutate(payload);
@@ -300,7 +362,12 @@ export function ScheduleWashModal({ isOpen, subscription, onClose, onSuccess }: 
 
   if (!isOpen || !subscription) return null;
 
-  const monthLabel = currentMonth.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+  const monthLabel = currentMonth.toLocaleString('en-US', {
+    month: 'long',
+    year: 'numeric',
+  });
+
+  const hasChanges = unselectedPendingTaskIds.length > 0 || newSelectedDates.length > 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm animate-in fade-in duration-200">
@@ -312,8 +379,12 @@ export function ScheduleWashModal({ isOpen, subscription, onClose, onSuccess }: 
               <CalendarPlus className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="font-bold text-gray-900 text-lg tracking-tight">Bulk Wash Scheduling</h2>
-              <p className="text-xs text-gray-500 font-medium">Select multiple days to schedule washes in one go</p>
+              <h2 className="font-bold text-gray-900 text-lg tracking-tight">
+                Manage Wash Schedule
+              </h2>
+              <p className="text-xs text-gray-500 font-medium">
+                Click pending dates to cancel/reschedule or click open dates to add new washes
+              </p>
             </div>
           </div>
           <button
@@ -340,11 +411,11 @@ export function ScheduleWashModal({ isOpen, subscription, onClose, onSuccess }: 
               <p className="text-[11px] font-mono text-gray-500">{subscription.car?.plateNumber}</p>
             </div>
             <div className="col-span-2 sm:col-span-1 sm:text-right">
-              <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Plan & Usage</span>
+              <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Subscription Usage</span>
               <div className="flex sm:justify-end items-center gap-1.5 mt-0.5">
                 <span className="font-medium text-gray-700">{subscription.plan?.name}</span>
                 <span className="font-bold text-blue-700 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-full text-[11px]">
-                  {availableToSchedule} left to schedule
+                  {totalActiveScheduled} / {totalWashCapacity} active
                 </span>
               </div>
             </div>
@@ -356,15 +427,15 @@ export function ScheduleWashModal({ isOpen, subscription, onClose, onSuccess }: 
           {/* Machine & Slot selectors */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wider text-gray-600">Assign Machine (Optional)</label>
+              <label className="text-xs font-semibold uppercase tracking-wider text-gray-600">Assign Machine (Required)</label>
               <select
                 value={machineId}
                 onChange={(e) => setMachineId(e.target.value)}
-                disabled={machinesLoading || activeMachines.length === 0}
+                disabled={machinesLoading || communityMachines.length === 0}
                 className="w-full bg-gray-50/50 border border-gray-200 text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-gray-900 disabled:text-gray-400"
               >
-                <option value="">Select Machine (None)</option>
-                {activeMachines.map((machine) => (
+                <option value="">Select Machine (Required)</option>
+                {communityMachines.map((machine) => (
                   <option key={machine.id} value={machine.id}>
                     {machine.name}
                   </option>
@@ -389,8 +460,13 @@ export function ScheduleWashModal({ isOpen, subscription, onClose, onSuccess }: 
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="font-bold text-gray-900 text-base">{monthLabel}</span>
-                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md font-semibold">
-                  {selectedDates.length} of {availableToSchedule} selected
+                <span className="text-xs text-gray-600 bg-gray-100 px-2 py-0.5 rounded-md font-semibold">
+                  {totalActiveScheduled} / {totalWashCapacity} scheduled
+                  {unselectedPendingTaskIds.length > 0 && (
+                    <span className="text-amber-700 ml-1 font-bold">
+                      ({unselectedPendingTaskIds.length} cancelling)
+                    </span>
+                  )}
                 </span>
               </div>
               <div className="flex items-center gap-1">
@@ -415,11 +491,15 @@ export function ScheduleWashModal({ isOpen, subscription, onClose, onSuccess }: 
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-gray-500 border-t border-gray-100 pt-2 font-medium">
               <div className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-full bg-blue-600 inline-block"></span>
-                <span>Selected</span>
+                <span>Selected / Pending</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span>
+                <span>To Cancel (Click to restore)</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
-                <span>Scheduled</span>
+                <span>In Progress</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-full bg-gray-400 inline-block"></span>
@@ -428,7 +508,7 @@ export function ScheduleWashModal({ isOpen, subscription, onClose, onSuccess }: 
               {machineId && (
                 <div className="flex items-center gap-1.5 ml-auto text-gray-600">
                   <Info className="w-3.5 h-3.5 text-blue-500" />
-                  <span>Machine workload shown per date (max {MAX_TASKS_PER_MACHINE_PER_DAY})</span>
+                  <span>Workload per date (max {MAX_TASKS_PER_MACHINE_PER_DAY})</span>
                 </div>
               )}
             </div>
@@ -447,65 +527,86 @@ export function ScheduleWashModal({ isOpen, subscription, onClose, onSuccess }: 
             {/* Calendar Days Grid */}
             <div className="grid grid-cols-7 gap-1.5">
               {calendarDays.map((dayObj, idx) => {
-                const isSelected = selectedDates.includes(dayObj.dateStr);
-                const isExisting = Boolean(dayObj.existingTask);
+                const { existingTask, dateStr } = dayObj;
+
+                const isNewSelected = newSelectedDates.includes(dateStr);
+                const isPendingTask = existingTask && existingTask.status === TaskStatus.PENDING;
+                const isUnselectedPending = isPendingTask && unselectedPendingTaskIds.includes(existingTask.id);
+                const isSelectedPending = isPendingTask && !isUnselectedPending;
+                const isCompleted = existingTask && existingTask.status === TaskStatus.COMPLETED;
+                const isInProgress = existingTask && existingTask.status === TaskStatus.IN_PROGRESS;
+
+                const isSelected = isNewSelected || isSelectedPending;
                 const isDisabled = Boolean(
                   !dayObj.isCurrentMonth ||
                     dayObj.isPast ||
                     dayObj.isOutsideSubscriptionRange ||
-                    isExisting ||
+                    isCompleted ||
+                    isInProgress ||
                     (machineId && dayObj.isMachineFull && !isSelected),
                 );
 
                 return (
                   <button
-                    key={`${dayObj.dateStr}-${idx}`}
+                    key={`${dateStr}-${idx}`}
                     type="button"
                     disabled={isDisabled}
                     onClick={() => handleDateClick(dayObj)}
                     title={
-                      isExisting
-                        ? `Status: ${dayObj.existingTask?.formattedStatus}`
+                      isCompleted
+                        ? 'Completed wash (locked)'
+                        : isInProgress
+                        ? 'Wash in progress (locked)'
+                        : isSelectedPending
+                        ? 'Click to cancel/reschedule this wash'
+                        : isUnselectedPending
+                        ? 'Click to restore this wash'
+                        : isNewSelected
+                        ? 'Click to unselect'
                         : dayObj.isPast
                         ? 'Past date'
                         : dayObj.isOutsideSubscriptionRange
                         ? 'Outside subscription range'
                         : machineId && dayObj.isMachineFull
                         ? 'Machine limit reached (10/10)'
-                        : dayObj.dateStr
+                        : dateStr
                     }
                     className={clsx(
                       'relative h-14 rounded-xl p-1 flex flex-col justify-between items-center transition-all border text-left text-xs font-semibold group',
                       !dayObj.isCurrentMonth && 'opacity-25 bg-gray-50/30 border-transparent',
-                      dayObj.isCurrentMonth && !isDisabled && !isSelected && 'hover:border-blue-400 hover:bg-blue-50/40 bg-gray-50/50 border-gray-200 text-gray-800',
+                      dayObj.isCurrentMonth && !isDisabled && !isSelected && !isUnselectedPending && 'hover:border-blue-400 hover:bg-blue-50/40 bg-gray-50/50 border-gray-200 text-gray-800',
+                      // Selected state (new selection or active pending task)
                       isSelected && 'bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-500/20 ring-2 ring-blue-500/30',
-                      isExisting && dayObj.existingTask?.status === TaskStatus.COMPLETED && 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed',
-                      isExisting && (dayObj.existingTask?.status === TaskStatus.PENDING || dayObj.existingTask?.status === TaskStatus.IN_PROGRESS) && 'bg-emerald-50 border-emerald-200 text-emerald-800 cursor-not-allowed',
-                      isExisting && dayObj.existingTask?.status === TaskStatus.CANCELLED && 'bg-red-50 border-red-100 text-red-400 cursor-not-allowed line-through',
-                      dayObj.isPast && !isExisting && 'opacity-40 bg-gray-50 border-gray-100 text-gray-400 cursor-not-allowed',
-                      dayObj.isOutsideSubscriptionRange && !isExisting && 'opacity-30 bg-gray-50 border-transparent text-gray-300 cursor-not-allowed'
+                      // Unselected pending state (scheduled task marked for cancellation)
+                      isUnselectedPending && 'bg-amber-50 border-amber-300 text-amber-900 border-dashed hover:bg-amber-100/70',
+                      // Locked existing states
+                      isCompleted && 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed',
+                      isInProgress && 'bg-emerald-50 border-emerald-200 text-emerald-800 cursor-not-allowed',
+                      dayObj.isPast && !existingTask && 'opacity-40 bg-gray-50 border-gray-100 text-gray-400 cursor-not-allowed',
+                      dayObj.isOutsideSubscriptionRange && !existingTask && 'opacity-30 bg-gray-50 border-transparent text-gray-300 cursor-not-allowed'
                     )}
                   >
-                    {/* Top Row: Day number & Existing status icon */}
+                    {/* Top Row: Day number & status icon */}
                     <div className="w-full flex items-center justify-between">
                       <span className={clsx('text-[11px] font-bold', dayObj.isToday && !isSelected && 'text-blue-600 underline font-black')}>
                         {dayObj.dayNumber}
                       </span>
                       {isSelected && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}
-                      {isExisting && dayObj.existingTask?.status === TaskStatus.COMPLETED && (
-                        <span className="text-[10px] text-gray-500 font-bold">✓</span>
-                      )}
-                      {isExisting && (dayObj.existingTask?.status === TaskStatus.PENDING || dayObj.existingTask?.status === TaskStatus.IN_PROGRESS) && (
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
-                      )}
+                      {isUnselectedPending && <span className="text-[10px] text-amber-700 font-bold">✕</span>}
+                      {isCompleted && <span className="text-[10px] text-gray-500 font-bold">✓</span>}
+                      {isInProgress && <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse"></span>}
                     </div>
 
-                    {/* Bottom Row: Machine Workload Badge / Existing label */}
+                    {/* Bottom Row: Machine Workload Badge / Status label */}
                     <div className="w-full flex justify-center text-[9px] font-mono leading-none">
-                      {isExisting ? (
-                        <span className="truncate text-[9px] font-medium opacity-80">
-                          {dayObj.existingTask?.formattedStatus}
-                        </span>
+                      {isUnselectedPending ? (
+                        <span className="truncate text-[9px] font-bold text-amber-700">Cancelling</span>
+                      ) : isSelectedPending ? (
+                        <span className="truncate text-[9px] font-medium text-white/90">Scheduled</span>
+                      ) : isCompleted ? (
+                        <span className="truncate text-[9px] font-medium opacity-80">Completed</span>
+                      ) : isInProgress ? (
+                        <span className="truncate text-[9px] font-bold text-emerald-700">In Progress</span>
                       ) : machineId && dayObj.isCurrentMonth && !dayObj.isPast ? (
                         <span
                           className={clsx(
@@ -554,16 +655,20 @@ export function ScheduleWashModal({ isOpen, subscription, onClose, onSuccess }: 
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={mutation.isPending || selectedDates.length === 0}
+            disabled={mutation.isPending || !hasChanges || !machineId}
             className={clsx(
               'flex-1 px-4 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 text-sm shadow-lg shadow-blue-500/20',
-              (mutation.isPending || selectedDates.length === 0) && 'opacity-60 cursor-not-allowed'
+              (mutation.isPending || !hasChanges || !machineId) && 'opacity-60 cursor-not-allowed'
             )}
           >
             {mutation.isPending ? (
               <Loader2 className="w-5 h-5 animate-spin" />
+            ) : hasChanges ? (
+              `Save Changes (${unselectedPendingTaskIds.length > 0 ? `${unselectedPendingTaskIds.length} cancel` : ''}${
+                unselectedPendingTaskIds.length > 0 && newSelectedDates.length > 0 ? ', ' : ''
+              }${newSelectedDates.length > 0 ? `${newSelectedDates.length} add` : ''})`
             ) : (
-              `Confirm (${selectedDates.length} Wash${selectedDates.length === 1 ? '' : 'es'})`
+              'No Changes'
             )}
           </button>
         </div>

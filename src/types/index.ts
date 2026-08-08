@@ -32,6 +32,11 @@ export interface Machine {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  tower?: {
+    id: string;
+    name: string;
+    communityId: string;
+  };
 }
 
 export interface Task {
@@ -39,7 +44,11 @@ export interface Task {
   userId: string;
   machineId?: string;
   status: TaskStatus;
-  notes?: string;
+  notes?: string | null;
+  userNote?: string | null;
+  workerNote?: string | null;
+  cancelledBy?: Role | null;
+  cancelledAt?: string | null;
   createdAt: string;
   updatedAt: string;
   user?: User;
@@ -227,4 +236,21 @@ export interface BulkScheduleResponse {
 export interface MachineDailyCount {
   date: string;
   taskCount: number;
+}
+
+export interface BulkModifyPayload {
+  userId: string;
+  carId: string;
+  subscriptionId: string;
+  cancelTaskIds?: string[];
+  newScheduledDates?: string[];
+  machineId?: string;
+  slotId?: string;
+  notes?: string;
+}
+
+export interface BulkModifyResponse {
+  cancelledCount: number;
+  createdCount: number;
+  createdTasks: Task[];
 }

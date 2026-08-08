@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/api/client';
 import { Community, UserSubscription, TaskStatus } from '@/types';
@@ -44,8 +44,18 @@ export default function ScheduleTasksPage() {
     setSelectedTowerId('');
   };
 
-  // Filter subscriptions based on search and selected community/tower
+  // Filter subscriptions based on search, active status, end date and selected community/tower
+  const todayStart = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
+
   const filteredSubscriptions = (Array.isArray(subscriptions) ? subscriptions : []).filter((sub) => {
+    // Active & non-expired filter
+    if (sub.isActive === false) return false;
+    if (sub.endDate && new Date(sub.endDate) < todayStart) return false;
+
     // Community filter
     if (selectedCommunityId) {
       if (sub.car?.tower?.communityId !== selectedCommunityId) return false;
@@ -203,10 +213,19 @@ export default function ScheduleTasksPage() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filteredSubscriptions.map((sub) => {
-                  // Filter out pending or in-progress tasks
-                  const upcomingTasks = sub.tasks?.filter(
-                    (t) => t.status === TaskStatus.PENDING || t.status === TaskStatus.IN_PROGRESS
-                  ) || [];
+                  // Filter and sort pending or in-progress tasks by scheduledDate asc
+                  const upcomingTasks = (sub.tasks || [])
+                    .filter(
+                      (t) => t.status === TaskStatus.PENDING || t.status === TaskStatus.IN_PROGRESS
+                    )
+                    .sort((a, b) => {
+                      if (!a.scheduledDate) return 1;
+                      if (!b.scheduledDate) return -1;
+                      return new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime();
+                    });
+
+                  const displayedTasks = upcomingTasks.slice(0, 1);
+                  const remainingCount = upcomingTasks.length - displayedTasks.length;
 
                   return (
                     <tr key={sub.id} className="hover:bg-gray-50/30 transition-colors align-top">
@@ -287,7 +306,7 @@ export default function ScheduleTasksPage() {
                           <span className="text-xs text-gray-400 italic font-medium">None scheduled</span>
                         ) : (
                           <div className="space-y-1.5">
-                            {upcomingTasks.map((t) => (
+                            {displayedTasks.map((t) => (
                               <div key={t.id} className="text-xs bg-gray-50 border border-gray-100 rounded-lg p-1.5 flex flex-col gap-0.5">
                                 <div className="flex items-center justify-between gap-2">
                                   <span className={`text-[9px] font-extrabold uppercase px-1 rounded ${
@@ -308,6 +327,12 @@ export default function ScheduleTasksPage() {
                                 </span>
                               </div>
                             ))}
+
+                            {remainingCount > 0 && (
+                              <div className="text-[11px] font-medium text-blue-600 bg-blue-50/70 border border-blue-100 rounded-lg px-2 py-1 text-center mt-1">
+                                + {remainingCount} more scheduled
+                              </div>
+                            )}
                           </div>
                         )}
                       </td>
@@ -317,14 +342,14 @@ export default function ScheduleTasksPage() {
                         <button
                           type="button"
                           onClick={() => openScheduleModal(sub)}
-                          disabled={sub.remainingWashes <= upcomingTasks.length}
+                          disabled={sub.remainingWashes <= 0 && upcomingTasks.length === 0}
                           className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2 px-3 rounded-xl transition-all shadow-md shadow-blue-500/10 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
                         >
                           <Calendar className="w-3.5 h-3.5" />
-                          {sub.remainingWashes <= upcomingTasks.length
-                            ? sub.remainingWashes <= 0
-                              ? 'No Washes Left'
-                              : 'Tasks Pending'
+                          {sub.remainingWashes <= 0 && upcomingTasks.length === 0
+                            ? 'No Washes Left'
+                            : upcomingTasks.length > 0
+                            ? 'Manage Schedule'
                             : 'Schedule Washes'}
                         </button>
                       </td>
