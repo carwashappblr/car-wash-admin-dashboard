@@ -2,15 +2,9 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/api/client';
-import { Role, User } from '@/types';
+import { Community, User } from '@/types';
 import { Search, Loader2, X } from 'lucide-react';
 import { useState } from 'react';
-
-const roleOptions = [
-  { label: 'All Roles', value: 'ALL' },
-  { label: 'Admin', value: Role.ADMIN },
-  { label: 'User', value: Role.USER },
-] as const;
 
 const statusOptions = [
   { label: 'All Statuses', value: 'ALL' },
@@ -234,27 +228,50 @@ function UserDetailsModal({
 
 export default function UsersPage() {
   const [search, setSearch] = useState('');
-  const [selectedRole, setSelectedRole] = useState<string>(Role.USER);
+  const [selectedCommunity, setSelectedCommunity] = useState<string>('ALL');
+  const [selectedTower, setSelectedTower] = useState<string>('ALL');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
-  const { data: users, isLoading, error } = useQuery({
-    queryKey: ['users', selectedRole, selectedStatus],
+  const { data: communities } = useQuery<Community[]>({
+    queryKey: ['communities'],
     queryFn: async () => {
-      const params: Record<string, string> = {};
+      const response = await apiClient.get<Community[]>('/communities');
+      return response.data;
+    },
+  });
 
-      if (selectedRole !== 'ALL') {
-        params.role = selectedRole;
+  const availableTowers = Array.isArray(communities)
+    ? communities.find((c) => c.id === selectedCommunity)?.towers || []
+    : [];
+
+  const handleCommunityChange = (communityId: string) => {
+    setSelectedCommunity(communityId);
+    setSelectedTower('ALL');
+  };
+
+  const { data: users, isLoading, error } = useQuery({
+    queryKey: ['users', selectedCommunity, selectedTower, selectedStatus],
+    queryFn: async () => {
+      const params: Record<string, string> = {
+        role: 'USER',
+      };
+
+      if (selectedCommunity !== 'ALL') {
+        params.communityId = selectedCommunity;
+      }
+
+      if (selectedTower !== 'ALL') {
+        params.towerId = selectedTower;
       }
 
       if (selectedStatus !== 'ALL') {
         params.isActive = selectedStatus;
       }
 
-      const endpoint = Object.keys(params).length > 0 ? '/users/filter' : '/users';
-      const response = await apiClient.get<User[]>(endpoint, { params });
+      const response = await apiClient.get<User[]>('/users/filter', { params });
       return response.data;
-    }
+    },
   });
 
   const {
@@ -270,25 +287,12 @@ export default function UsersPage() {
     enabled: Boolean(selectedUser?.id),
   });
 
-  const filteredUsers = (Array.isArray(users) ? users : [])?.filter(user => {
+  const filteredUsers = (Array.isArray(users) ? users : [])?.filter((user) => {
     const name = (user?.name || '').toLowerCase();
     const email = (user?.email || '').toLowerCase();
     const searchTerm = search.toLowerCase();
     return name.includes(searchTerm) || email.includes(searchTerm);
   });
-
-  const getRoleBadgeClass = (role: string) => {
-    switch (role) {
-      case Role.ADMIN:
-        return 'bg-indigo-100 text-indigo-700';
-      case Role.WORKER:
-        return 'bg-blue-100 text-blue-700';
-      case Role.USER:
-        return 'bg-gray-100 text-gray-700';
-      default:
-        return 'bg-slate-100 text-slate-700';
-    }
-  };
 
   const renderStatus = (isActive?: boolean) => {
     if (typeof isActive !== 'boolean') {
@@ -338,13 +342,28 @@ export default function UsersPage() {
 
             <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
               <select
-                value={selectedRole}
-                onChange={(e) => setSelectedRole(e.target.value)}
+                value={selectedCommunity}
+                onChange={(e) => handleCommunityChange(e.target.value)}
                 className="w-full sm:w-44 px-3 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
               >
-                {roleOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
+                <option value="ALL">All Communities</option>
+                {communities?.map((community) => (
+                  <option key={community.id} value={community.id}>
+                    {community.name}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={selectedTower}
+                onChange={(e) => setSelectedTower(e.target.value)}
+                disabled={selectedCommunity === 'ALL'}
+                className="w-full sm:w-44 px-3 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-400"
+              >
+                <option value="ALL">All Towers</option>
+                {availableTowers.map((tower) => (
+                  <option key={tower.id} value={tower.id}>
+                    {tower.name}
                   </option>
                 ))}
               </select>
@@ -369,26 +388,27 @@ export default function UsersPage() {
                 <tr>
                   <th className="px-6 py-4">Name</th>
                   <th className="px-6 py-4">Email</th>
-                  <th className="px-6 py-4">Role</th>
+                  <th className="px-6 py-4">Community</th>
+                  <th className="px-6 py-4">Tower</th>
                   <th className="px-6 py-4">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={4} className="px-6 py-12 text-center">
+                    <td colSpan={5} className="px-6 py-12 text-center">
                       <Loader2 className="w-6 h-6 animate-spin text-blue-500 mx-auto" />
                     </td>
                   </tr>
                 ) : error ? (
                   <tr>
-                    <td colSpan={4} className="px-6 py-12 text-center text-red-500 font-medium">
+                    <td colSpan={5} className="px-6 py-12 text-center text-red-500 font-medium">
                       Could not load users. Please try again.
                     </td>
                   </tr>
                 ) : filteredUsers?.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-6 py-12 text-center text-gray-500 font-medium">
+                    <td colSpan={5} className="px-6 py-12 text-center text-gray-500 font-medium">
                       No users found matching the selected filters.
                     </td>
                   </tr>
@@ -401,10 +421,11 @@ export default function UsersPage() {
                     >
                       <td className="px-6 py-4 font-medium text-gray-900">{user.name}</td>
                       <td className="px-6 py-4 text-gray-500">{user.email}</td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${getRoleBadgeClass(user.role)}`}>
-                          {user.role}
-                        </span>
+                      <td className="px-6 py-4 text-gray-700 font-medium">
+                        {user.community?.name || 'N/A'}
+                      </td>
+                      <td className="px-6 py-4 text-gray-700 font-medium">
+                        {user.tower?.name || 'N/A'}
                       </td>
                       <td className="px-6 py-4">{renderStatus(user.isActive)}</td>
                     </tr>

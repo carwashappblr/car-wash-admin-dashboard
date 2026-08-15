@@ -16,6 +16,10 @@ export interface User {
   email: string;
   name: string;
   role: Role;
+  communityId?: string;
+  towerId?: string;
+  community?: { id: string; name: string };
+  tower?: { id: string; name: string };
   isActive?: boolean;
   phone?: string;
   createdAt: string;
